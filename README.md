@@ -47,6 +47,50 @@ Le statut de connexion s'affiche dans la barre du haut (Mode démo, Connecté, R
 
 > ⚠️ Les variables `VITE_*` sont intégrées au bundle côté client : le jeton est lisible par quiconque accède à l'application. À réserver à un usage sur le réseau local.
 
+## Déploiement sur un Raspberry Pi
+
+Pour servir l'app en continu sur le réseau local, depuis le Pi qui fait tourner Home Assistant. Il faut seulement Docker : Node.js n'a pas besoin d'être installé sur le Pi, le build se fait dans un conteneur temporaire.
+
+1. Cloner le dépôt sur le Pi et se placer dans son dossier (les commandes suivantes utilisent `$(pwd)`) :
+
+   ```bash
+   git clone git@github.com:lucavadnais/home-assistant.git
+   cd home-assistant
+   ```
+
+2. Créer `.env.local`, qui n'est pas versionné :
+
+   ```bash
+   nano .env.local
+   ```
+
+   ```env
+   VITE_HA_URL=http://<ip-du-pi>:8123
+   VITE_HA_TOKEN=<votre jeton>
+   ```
+
+   Mettre l'IP du Pi et non `localhost` : l'URL est utilisée par le navigateur des autres appareils, pas par le Pi.
+   Pour enregistrer dans nano : `Ctrl+O`, puis **Entrée** sans choisir de format (surtout pas « DOS Format »), puis `Ctrl+X` pour quitter.
+
+3. Construire l'app dans un conteneur Node jetable (le résultat va dans `dist/`) :
+
+   ```bash
+   sudo docker run --rm -v "$(pwd)":/app -w /app node:20-alpine sh -c "npm ci && npm run build"
+   ```
+
+4. Servir `dist/` avec nginx, redémarré automatiquement avec le Pi :
+
+   ```bash
+   sudo docker run -d --name smarthome --restart unless-stopped \
+     -p 8080:80 -v "$(pwd)/dist:/usr/share/nginx/html:ro" nginx:alpine
+   ```
+
+   L'app est alors accessible sur `http://<ip-du-pi>:8080` depuis n'importe quel appareil du réseau.
+
+**Mettre à jour** : `git pull`, refaire l'étape 3, puis recharger la page (inutile de redémarrer nginx).
+
+**Vérifier** : `sudo docker ps` liste les conteneurs en cours d'exécution, `sudo docker ps -a` tous (y compris arrêtés), `sudo docker logs smarthome` affiche les journaux du serveur.
+
 ## Structure
 
 ```
