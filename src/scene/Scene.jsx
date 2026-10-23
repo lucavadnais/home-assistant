@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, OrthographicCamera } from '@react-three/drei'
@@ -58,7 +58,26 @@ function dayLighting(sun, sky) {
 // Lit windows fade to this fraction of their night glow once the sun is up (same 0–10° ramp as dawn).
 const DAY_WINDOW_GLOW = 0.35
 
-const TARGET = [1, 2, -1]
+// Starting view: from the street, almost face-on and low (8° up), the whole plot filling the
+// screen. The camera is orthographic, so its distance only has to clear the scene.
+const TARGET = [-0.5, 3, -1]
+const VIEW_ELEVATION = THREE.MathUtils.degToRad(8)
+// Lowest the camera can orbit down to, above the horizon
+const MIN_ELEVATION = THREE.MathUtils.degToRad(5)
+const CAMERA_POSITION = [
+  TARGET[0],
+  TARGET[1] + 50 * Math.sin(VIEW_ELEVATION),
+  TARGET[2] + 50 * Math.cos(VIEW_ELEVATION),
+]
+const MIN_ZOOM = 10
+const MAX_ZOOM = 70
+// Size of the plot as seen from the starting view (world units), to fit it on screen
+const VIEW_WIDTH = 28
+const VIEW_HEIGHT = 17
+const fitZoom = () => THREE.MathUtils.clamp(
+  Math.min((0.92 * window.innerWidth) / VIEW_WIDTH, (0.85 * window.innerHeight) / VIEW_HEIGHT),
+  MIN_ZOOM, MAX_ZOOM,
+)
 
 // Slides the framing sideways by `shift`, a fraction of the screen width, without moving the
 // camera: orbiting and zoom still pivot on the house. Positive moves the house to the right.
@@ -81,6 +100,7 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
   const sky = l.sky
   const wind = windStrength(windKmh)
   const neighborLit = useNeighborLights(mode, hour)
+  const [zoom] = useState(fitZoom)
   const windowGlow = day ? THREE.MathUtils.lerp(1, DAY_WINDOW_GLOW, THREE.MathUtils.smoothstep(sun.elevation, 0, 10)) : 1
 
   return (
@@ -92,13 +112,13 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
       {(day || weather.clouds > 3) && (
         <Clouds count={weather.clouds} color={day ? weather.cloudColor : '#3a4354'} glow={day ? 0.3 : 0.05} speed={1 + 8 * wind} />
       )}
-      <OrthographicCamera makeDefault position={[27, 30, 30]} zoom={18} near={-100} far={300} />
+      <OrthographicCamera makeDefault position={CAMERA_POSITION} zoom={zoom} near={-100} far={300} />
       <OrbitControls
         target={TARGET}
         enablePan={false}
-        minZoom={10}
-        maxZoom={70}
-        maxPolarAngle={Math.PI / 2.3}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        maxPolarAngle={Math.PI / 2 - MIN_ELEVATION}
         enableDamping
         makeDefault
       />
