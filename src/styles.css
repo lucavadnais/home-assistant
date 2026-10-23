@@ -1,0 +1,105 @@
+:root {
+  --panel: rgba(22, 30, 44, 0.72);
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #e8edf5;
+  --muted: #8b97a8;
+  --warm: #ffb85c;
+  --danger: #e2685c;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; background: #0b1220; }
+
+.app { position: relative; height: 100%; overflow: hidden; }
+
+.topbar {
+  position: absolute; top: 16px; left: 16px; right: 260px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  pointer-events: none;
+}
+.topbar > * { pointer-events: auto; }
+
+.title { margin-right: 12px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+.title h1 { margin: 0; font-size: 18px; font-weight: 600; }
+.title span { font-size: 12px; color: #c9d3e0; }
+
+.chip {
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 8px 14px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--border);
+  backdrop-filter: blur(10px); color: inherit; font: inherit;
+}
+.chip strong { font-size: 13px; font-weight: 600; }
+.chip span { font-size: 11px; color: var(--muted); }
+button.chip { cursor: pointer; }
+button.chip:hover { border-color: rgba(255, 255, 255, 0.2); }
+.chip.danger strong { color: var(--danger); }
+.chip:disabled { opacity: 0.5; cursor: default; }
+.ha-connected strong { color: #7fd18b; }
+.ha-auth-error strong, .ha-error strong { color: var(--danger); }
+
+.menu-anchor { position: relative; }
+.menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
+  min-width: 180px; margin: 0; padding: 6px; list-style: none;
+  background: rgba(22, 30, 44, 0.92); border: 1px solid var(--border); border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+.menu button {
+  display: flex; flex-direction: column; align-items: flex-start; width: 100%;
+  padding: 8px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer;
+  color: inherit; font: inherit; font-size: 13px; text-align: left;
+}
+.menu button:hover { background: rgba(255, 255, 255, 0.06); }
+.menu button.active { background: rgba(255, 184, 92, 0.18); color: var(--warm); }
+.menu small { font-size: 11px; color: var(--muted); }
+
+.rooms {
+  position: absolute; top: 16px; right: 16px; width: 230px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.room {
+  display: grid; grid-template-columns: 12px 1fr; grid-template-rows: auto auto;
+  column-gap: 10px; align-items: center; text-align: left;
+  padding: 10px 14px; border-radius: 12px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--border);
+  backdrop-filter: blur(10px); color: inherit; font: inherit;
+  transition: background 0.2s, border-color 0.2s;
+}
+.room:hover { border-color: rgba(255, 255, 255, 0.2); }
+.room .dot { grid-row: span 2; width: 10px; height: 10px; border-radius: 50%; background: #3a4555; transition: 0.2s; }
+.room .name { font-size: 13px; font-weight: 600; }
+.room .state { font-size: 11px; color: var(--muted); }
+.room.on { background: rgba(110, 90, 50, 0.6); border-color: rgba(255, 184, 92, 0.4); }
+.room.on .state { color: #ecd9b8; }
+.room.offline { opacity: 0.5; }
+.room.on .dot { background: var(--warm); box-shadow: 0 0 10px var(--warm); }
+
+.hint {
+  position: absolute; bottom: 12px; left: 16px; margin: 0;
+  padding: 6px 12px; border-radius: 999px; background: var(--panel); backdrop-filter: blur(10px);
+  font-size: 12px; color: #c9d3e0; pointer-events: none;
+}
+
+.time-slider {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; width: min(440px, calc(100% - 32px));
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(10px);
+  font-size: 11px; color: var(--muted);
+}
+.time-slider input { flex: 1; accent-color: var(--warm); }
+.time-slider strong { min-width: 52px; font-size: 13px; color: var(--warm); text-align: right; }
+
+@media (max-width: 700px) {
+  .time-slider { bottom: 52px; }
+  .topbar { right: 16px; }
+  .rooms {
+    top: auto; bottom: 40px; left: 16px; right: 16px; width: auto;
+    flex-direction: row; overflow-x: auto;
+  }
+  .room { flex: 0 0 150px; }
+}
