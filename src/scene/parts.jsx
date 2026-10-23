@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Edges } from '@react-three/drei'
-import { SILHOUETTE_VARIANTS, barsTexture, silhouetteTexture, worldUvBox } from './textures'
+import { SILHOUETTES, barsTexture, silhouetteTexture, worldUvBox } from './textures'
 import { between, hash, random } from './chance'
 
 const WARM = new THREE.Color('#ffb85c')
@@ -10,6 +10,12 @@ const UP = new THREE.Vector3(0, 1, 0)
 
 // Scales lit windows: 1 at night, lower in daylight where interior lights barely show.
 export const WindowGlow = createContext(1)
+
+// Who may walk past the lit windows of a building (SILHOUETTES ids). Wrap a building in a
+// provider to give it its own household; the default is the brick duplex's.
+export const WindowPeople = createContext([
+  SILHOUETTES.plain, SILHOUETTES.ponytail, SILHOUETTES.bun, SILHOUETTES.man,
+])
 
 export function Solid({ size, color, cast = true, ...props }) {
   return (
@@ -75,11 +81,9 @@ const WALK_SPEED = 0.7 // m/s
 function Silhouette({ size, seed, glass, glowMax }) {
   const [w, h] = size
   const mat = useRef()
-  // One texture per hair variant, cloned so each window can slide its own copy
-  const textures = useMemo(
-    () => Array.from({ length: SILHOUETTE_VARIANTS }, (_, i) => silhouetteTexture(i).clone()),
-    [],
-  )
+  const people = useContext(WindowPeople)
+  // One texture per person of the household, cloned so each window can slide its own copy
+  const textures = useMemo(() => people.map((p) => silhouetteTexture(p).clone()), [people])
   const r = (k) => random(seed + k)
   const period = between(r(1), 20, 60)
   const crossing = (w + 2 * PERSON[0]) / WALK_SPEED
@@ -96,7 +100,7 @@ function Silhouette({ size, seed, glass, glowMax }) {
     }
     // Who walks by this time, and which way
     const c = (k) => random(seed + cycle * 13 + k)
-    const texture = textures[Math.floor(c(1) * SILHOUETTE_VARIANTS)]
+    const texture = textures[Math.floor(c(1) * textures.length)]
     if (m.map !== texture) m.map = texture
     const dir = c(2) < 0.5 ? 1 : -1
     const headTop = Math.min(h * 0.85, 1.45) + between(c(3), -0.2, 0.05)

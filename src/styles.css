@@ -1,10 +1,17 @@
 :root {
-  --panel: rgba(22, 30, 44, 0.72);
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #e8edf5;
-  --muted: #8b97a8;
+  /* Frosted glass shared by every overlay: a light sheen over a faint dark tint keeps white text
+     readable on both the night background and the bright day sky. */
+  --glass: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05)), rgba(16, 24, 38, 0.42);
+  --glass-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)), rgba(16, 24, 38, 0.62);
+  --glass-hover: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08)), rgba(16, 24, 38, 0.42);
+  --glass-warm: linear-gradient(135deg, rgba(255, 184, 92, 0.38), rgba(255, 184, 92, 0.12)), rgba(16, 24, 38, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-blur: blur(18px) saturate(170%);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  --text: #f2f5fa;
+  --muted: #bcc6d4;
   --warm: #ffb85c;
-  --danger: #e2685c;
+  --danger: #ff8f80;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
 }
@@ -14,6 +21,15 @@ html, body, #root { margin: 0; height: 100%; background: #0b1220; }
 
 .app { position: relative; height: 100%; overflow: hidden; }
 
+.chip, .room, .weather-widget, .render-flyout, .hint, .time-slider, .agenda, .display-panel {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
 .topbar {
   position: absolute; top: 16px; left: 16px; right: 260px;
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
@@ -21,74 +37,229 @@ html, body, #root { margin: 0; height: 100%; background: #0b1220; }
 }
 .topbar > * { pointer-events: auto; }
 
-.title { margin-right: 12px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
-.title h1 { margin: 0; font-size: 18px; font-weight: 600; }
-.title span { font-size: 12px; color: #c9d3e0; }
-
 .chip {
   display: flex; flex-direction: column; align-items: flex-start;
-  padding: 8px 14px; border-radius: 12px;
-  background: var(--panel); border: 1px solid var(--border);
-  backdrop-filter: blur(10px); color: inherit; font: inherit;
+  padding: 8px 14px; border-radius: 14px;
+  color: inherit; font: inherit;
+  transition: background 0.2s, border-color 0.2s;
 }
 .chip strong { font-size: 13px; font-weight: 600; }
 .chip span { font-size: 11px; color: var(--muted); }
 button.chip { cursor: pointer; }
-button.chip:hover { border-color: rgba(255, 255, 255, 0.2); }
+button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255, 255, 0.35); }
 .chip.danger strong { color: var(--danger); }
 .chip:disabled { opacity: 0.5; cursor: default; }
-.ha-connected strong { color: #7fd18b; }
-.ha-auth-error strong, .ha-error strong { color: var(--danger); }
+.chip:disabled:hover { background: var(--glass); border-color: var(--glass-border); }
 
-.menu-anchor { position: relative; }
-.menu {
-  position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
-  min-width: 180px; margin: 0; padding: 6px; list-style: none;
-  background: rgba(22, 30, 44, 0.92); border: 1px solid var(--border); border-radius: 12px;
-  backdrop-filter: blur(10px);
+/* Google Calendar card, under the weather: the ongoing event, then the next ones folded
+   behind the button at the bottom. */
+.agenda { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; }
+.agenda-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 8px 0 16px;
+  font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
 }
-.menu button {
-  display: flex; flex-direction: column; align-items: flex-start; width: 100%;
-  padding: 8px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer;
-  color: inherit; font: inherit; font-size: 13px; text-align: left;
+/* Manual refresh, top-right; spins while the events load. */
+.agenda-refresh {
+  flex: none; display: grid; place-items: center;
+  width: 28px; height: 28px; padding: 0; border-radius: 50%;
+  border: 0; background: none; color: var(--muted); cursor: pointer;
+  transition: background 0.2s, color 0.2s;
 }
-.menu button:hover { background: rgba(255, 255, 255, 0.06); }
-.menu button.active { background: rgba(255, 184, 92, 0.18); color: var(--warm); }
-.menu small { font-size: 11px; color: var(--muted); }
+.agenda-refresh:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); color: var(--text); }
+.agenda-refresh:disabled { cursor: default; }
+.agenda-refresh.spinning svg { animation: agenda-spin 0.8s linear infinite; }
+@keyframes agenda-spin { to { transform: rotate(360deg); } }
+.agenda-now { display: flex; flex-direction: column; gap: 3px; padding: 0 16px 12px; }
+.agenda-now + .agenda-now { padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.agenda-now-title { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.agenda-now-time { font-size: 12px; font-variant-numeric: tabular-nums; }
+.agenda-now-location { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agenda-now-progress { height: 3px; margin-top: 6px; border-radius: 2px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+.agenda-now-progress div { height: 100%; background: var(--cal); }
+.agenda-idle { margin: 0; padding: 0 16px 12px; font-size: 13px; color: var(--muted); }
+.agenda-days {
+  display: flex; flex-direction: column; gap: 10px;
+  max-height: 50vh; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+  padding: 10px 16px 12px; border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+.agenda-day h3 {
+  margin: 0 0 4px; font-size: 10px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.agenda-day ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+/* One event: calendar colour bar, start time, title (cut with … when too long). */
+.agenda-day li {
+  display: grid; grid-template-columns: 52px 1fr; gap: 8px; align-items: baseline;
+  padding: 3px 0 3px 8px; border-left: 2px solid var(--cal);
+  font-size: 12px;
+}
+.agenda-time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.agenda-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Bottom strip that unfolds the next events; chevron points up when open. */
+.agenda-more {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 16px; border: 0; border-top: 1px solid rgba(255, 255, 255, 0.14);
+  background: none; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.agenda-more:hover { background: rgba(255, 255, 255, 0.07); color: var(--text); }
+.agenda-more svg { transition: transform 0.25s; }
+.agenda-more[aria-expanded='true'] svg { transform: rotate(180deg); }
 
-.rooms {
+/* Display settings: round gear button, its panel drops below it. */
+.display-settings { position: relative; }
+.display-toggle { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; }
+.display-toggle svg { transition: transform 0.4s; }
+.display-toggle[aria-expanded='true'] svg { transform: rotate(60deg); }
+.display-panel {
+  position: absolute; top: calc(100% + 10px); left: 0; z-index: 10;
+  width: 240px; padding: 14px 16px; border-radius: 18px;
+}
+.display-title { font-size: 13px; }
+.view-shift { display: flex; align-items: center; gap: 10px; }
+.view-shift input { flex: 1; min-width: 0; accent-color: var(--warm); }
+.view-shift button {
+  padding: 4px 10px; border-radius: 10px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14);
+  color: inherit; font: inherit; font-size: 11px;
+}
+.view-shift button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+.view-shift button:disabled { opacity: 0.4; cursor: default; }
+
+/* Render settings open in a panel to the left of the weather card, aligned with its top. */
+.render-flyout {
+  position: absolute; top: 0; right: calc(100% + 10px); z-index: 10;
+  width: min(340px, calc(100vw - 290px)); padding: 14px 16px; border-radius: 18px;
+}
+.render-settings { display: flex; flex-direction: column; gap: 12px; }
+.render-summary { display: flex; align-items: center; gap: 8px; }
+.render-summary strong { font-size: 13px; }
+/* Refresh, top-right: back to the real render; dimmed when nothing is forced. */
+.render-refresh {
+  margin-left: auto; flex: none; display: grid; place-items: center;
+  width: 28px; height: 28px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: none; border: 0; color: var(--text);
+  transition: background 0.2s, transform 0.4s, opacity 0.2s;
+}
+.render-refresh:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); transform: rotate(180deg); }
+.render-refresh:disabled { opacity: 0.3; cursor: default; }
+.render-group { margin: 0; padding: 0; border: 0; }
+.render-group legend {
+  padding: 0; margin-bottom: 6px;
+  font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.render-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.render-options button {
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 6px 10px; border-radius: 10px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14);
+  color: inherit; font: inherit; font-size: 12px; text-align: left;
+  transition: background 0.2s, border-color 0.2s;
+}
+.render-options button:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.3); }
+.render-options button.active { background: rgba(255, 184, 92, 0.24); border-color: rgba(255, 184, 92, 0.55); color: var(--warm); }
+
+.sidebar {
   position: absolute; top: 16px; right: 16px; width: 230px;
+  max-height: calc(100% - 32px);
   display: flex; flex-direction: column; gap: 8px;
 }
+/* The column never runs past the screen: the device list (and the agenda's) scroll inside it
+   instead. The column itself can't scroll, or it would clip the render flyout beside it. */
+.rooms {
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+}
+.rooms[hidden] { display: none; }
+/* Header that folds the device list: title, count, chevron (points up when folded). */
+.rooms-toggle { flex-direction: row; align-items: baseline; gap: 8px; }
+.rooms-toggle svg { margin-left: auto; align-self: center; color: var(--muted); transition: transform 0.25s; }
+.rooms-toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
+.all-off { align-items: center; background: var(--glass-strong); }
+
+.weather-widget {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px 14px 6px; border-radius: 18px;
+}
+.weather-body { display: flex; gap: 8px; }
+.weather-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+/* Thin strip along the card's left edge: no fill or border, just the chevron, lit on hover. */
+.expand-button {
+  position: relative; align-self: stretch; flex: none;
+  display: grid; place-items: center; width: 14px; padding: 0;
+  border: 0; border-radius: 7px; cursor: pointer;
+  background: none; color: var(--muted); opacity: 0.7;
+  transition: color 0.2s, background 0.2s, opacity 0.2s;
+}
+.expand-button:hover { opacity: 1; color: var(--text); background: rgba(255, 255, 255, 0.07); }
+.expand-button:focus-visible { outline: 1px solid rgba(255, 255, 255, 0.4); }
+.expand-button svg { transition: transform 0.25s; }
+.expand-button[aria-expanded='true'] { color: var(--text); opacity: 1; }
+.expand-button[aria-expanded='true'] svg { transform: rotate(180deg); }
+/* Home Assistant connection status, before the title of the lights list. */
+.status-dot {
+  flex: none; align-self: center; width: 7px; height: 7px; border-radius: 50%;
+  --dot: #8b97a8; background: var(--dot); box-shadow: 0 0 6px var(--dot);
+}
+.status-connected { --dot: #6fdc85; }
+.status-connecting, .status-disconnected { --dot: var(--warm); animation: status-pulse 1.2s ease-in-out infinite; }
+.status-error, .status-auth-error { --dot: #ff6b5c; }
+@keyframes status-pulse { 50% { opacity: 0.35; } }
+
+/* Explains a non-connected status at the top of the device list; tinted by the status colour. */
+.status-card {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px; border-radius: 14px;
+  background: var(--glass-strong); border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--dot);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+}
+.status-card-title { display: flex; align-items: center; gap: 8px; }
+.status-card-title strong { font-size: 13px; }
+.status-card p { margin: 0; font-size: 12px; line-height: 1.4; }
+.status-card .status-card-hint { color: var(--muted); font-size: 11px; }
+.status-card-retry {
+  align-self: flex-start; margin-top: 2px; padding: 5px 12px; border-radius: 10px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+  color: inherit; font: inherit; font-size: 12px;
+}
+.status-card-retry:hover { background: rgba(255, 255, 255, 0.18); }
+.weather-main { display: flex; align-items: center; gap: 10px; }
+.weather-icon { width: 48px; height: 48px; flex: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); }
+.weather-temp { display: block; font-size: 26px; font-weight: 600; line-height: 1.1; }
+.weather-label { font-size: 12px; color: var(--muted); }
+.weather-details {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 0;
+  padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+.weather-details dt { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.weather-details dd { margin: 0; font-size: 13px; font-weight: 600; }
 
 .room {
   display: grid; grid-template-columns: 12px 1fr; grid-template-rows: auto auto;
   column-gap: 10px; align-items: center; text-align: left;
-  padding: 10px 14px; border-radius: 12px; cursor: pointer;
-  background: var(--panel); border: 1px solid var(--border);
-  backdrop-filter: blur(10px); color: inherit; font: inherit;
+  padding: 10px 14px; border-radius: 14px; cursor: pointer;
+  color: inherit; font: inherit;
   transition: background 0.2s, border-color 0.2s;
 }
-.room:hover { border-color: rgba(255, 255, 255, 0.2); }
-.room .dot { grid-row: span 2; width: 10px; height: 10px; border-radius: 50%; background: #3a4555; transition: 0.2s; }
+.room:hover { background: var(--glass-hover); border-color: rgba(255, 255, 255, 0.35); }
+.room .dot {
+  grid-row: span 2; width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25); transition: 0.2s;
+}
 .room .name { font-size: 13px; font-weight: 600; }
 .room .state { font-size: 11px; color: var(--muted); }
-.room.on { background: rgba(110, 90, 50, 0.6); border-color: rgba(255, 184, 92, 0.4); }
-.room.on .state { color: #ecd9b8; }
+.room.on { background: var(--glass-warm); border-color: rgba(255, 184, 92, 0.5); }
+.room.on .state { color: #ffe2b8; }
 .room.offline { opacity: 0.5; }
 .room.on .dot { background: var(--warm); box-shadow: 0 0 10px var(--warm); }
-
-.hint {
-  position: absolute; bottom: 12px; left: 16px; margin: 0;
-  padding: 6px 12px; border-radius: 999px; background: var(--panel); backdrop-filter: blur(10px);
-  font-size: 12px; color: #c9d3e0; pointer-events: none;
-}
 
 .time-slider {
   position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 10px; width: min(440px, calc(100% - 32px));
   padding: 8px 14px; border-radius: 999px;
-  background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(10px);
   font-size: 11px; color: var(--muted);
 }
 .time-slider input { flex: 1; accent-color: var(--warm); }
@@ -97,9 +268,11 @@ button.chip:hover { border-color: rgba(255, 255, 255, 0.2); }
 @media (max-width: 700px) {
   .time-slider { bottom: 52px; }
   .topbar { right: 16px; }
-  .rooms {
-    top: auto; bottom: 40px; left: 16px; right: 16px; width: auto;
-    flex-direction: row; overflow-x: auto;
-  }
+  .agenda-days { max-height: 30vh; }
+  .sidebar { top: auto; bottom: 40px; left: 16px; right: 16px; width: auto; max-height: calc(100% - 120px); }
+  .rooms { flex-direction: row; overflow-x: auto; touch-action: pan-x; flex: none; }
   .room { flex: 0 0 150px; }
+  .weather-details { display: none; }
+  /* No room beside the card on a phone: the panel opens above the bottom bar instead. */
+  .render-flyout { top: auto; bottom: calc(100% + 10px); right: 0; left: 0; width: auto; }
 }

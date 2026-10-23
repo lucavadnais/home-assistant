@@ -1,5 +1,6 @@
+import { useLayoutEffect } from 'react'
 import * as THREE from 'three'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, OrthographicCamera } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import RearHouse from './RearHouse'
@@ -59,7 +60,20 @@ const DAY_WINDOW_GLOW = 0.35
 
 const TARGET = [1, 2, -1]
 
-export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors, season: seasonId, weather: weatherId, wind: windKmh }) {
+// Slides the framing sideways by `shift`, a fraction of the screen width, without moving the
+// camera: orbiting and zoom still pivot on the house. Positive moves the house to the right.
+function ViewShift({ shift }) {
+  const camera = useThree((s) => s.camera)
+  const { width, height } = useThree((s) => s.size)
+  useLayoutEffect(() => {
+    const x = -shift * width
+    if (x) camera.setViewOffset(width, height, x, 0, width, height)
+    else camera.clearViewOffset()
+  }, [camera, shift, width, height])
+  return null
+}
+
+export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors, viewShift, season: seasonId, weather: weatherId, wind: windKmh }) {
   const season = SEASONS[seasonId]
   const weather = WEATHERS[weatherId]
   const day = mode === 'day'
@@ -89,6 +103,7 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
         makeDefault
       />
       <IdleDrift />
+      <ViewShift shift={viewShift} />
 
       <ambientLight intensity={l.ambient} />
       <hemisphereLight args={['#bcd3ff', '#2a3a20', l.hemi]} />

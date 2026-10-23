@@ -1,7 +1,9 @@
-import { SEASONS, SEASON_ORDER, currentSeason } from '../scene/seasons'
-import { LOCATION } from '../weather/weather'
-import ChipMenu from './ChipMenu'
-import WeatherMenu from './WeatherMenu'
+import { useState } from 'react'
+import CalendarWidget from './CalendarWidget'
+import DisplaySettings from './DisplaySettings'
+import RenderSettings from './RenderSettings'
+import StatusCard from './StatusCard'
+import WeatherWidget from './WeatherWidget'
 
 const HA_STATUS = {
   demo: 'Mode démo',
@@ -9,88 +11,107 @@ const HA_STATUS = {
   connected: 'Connecté',
   disconnected: 'Reconnexion…',
   'auth-error': 'Jeton refusé',
-  error: 'Injoignable',
+  error: 'Hors ligne',
 }
-
-const MODE_LABELS = { day: 'Jour', night: 'Nuit' }
 
 // Minutes since midnight → "14 h 05"
 const formatTime = (m) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`
 
 export default function Overlay({
-  rooms, onToggle, onAllOff, mode, modeChoice, onModeChoiceChange, daytime,
+  rooms, onToggle, onAllOff, mode, modeChoice, onModeChoiceChange,
   daySpan, dayMinutes, onDayMinutesChange,
   season, seasonChoice, onSeasonChoiceChange,
   weatherChoice, onWeatherChoiceChange, weather, liveWeather, weatherError,
-  haStatus, showNeighbors, onShowNeighborsChange,
+  haStatus, onHaRetry, showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange,
+  calendarEvents, calendarStatus, calendarRefreshing, onCalendarRefresh,
 }) {
   const lit = rooms.filter((r) => r.on).length
+  // Render settings panel, opened by the arrow on the weather card
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // Device list folded or not; remembered in this browser (storage may be unavailable)
+  const [roomsOpen, setRoomsOpenState] = useState(() => {
+    try { return localStorage.getItem('roomsOpen') !== 'false' } catch { return true }
+  })
+  const setRoomsOpen = (open) => {
+    setRoomsOpenState(open)
+    try { localStorage.setItem('roomsOpen', String(open)) } catch { /* not persisted */ }
+  }
 
   return (
     <>
       <header className="topbar">
-        <div className="title">
-          <h1>Ma maison</h1>
-          <span>6538 · maison de fond de cour</span>
-        </div>
-        <div className={`chip ha-${haStatus}`}>
-          <strong>Home Assistant</strong>
-          <span>{HA_STATUS[haStatus]}</span>
-        </div>
-        <div className="chip">
-          <strong>Lumières</strong>
-          <span>{lit} / {rooms.length} allumées</span>
-        </div>
-        <button className="chip danger" onClick={onAllOff} disabled={lit === 0}>
-          <strong>Tout éteindre</strong>
-          <span>Maison</span>
-        </button>
-        <ChipMenu
-          title={MODE_LABELS[mode]}
-          subtitle={`Ambiance · ${modeChoice === 'auto' ? 'auto' : 'manuel'}`}
-          value={modeChoice}
-          onChange={onModeChoiceChange}
-          options={[
-            { value: 'auto', label: 'Selon le soleil', detail: `${MODE_LABELS[daytime ? 'day' : 'night']} en ce moment · ${LOCATION.name}` },
-            { value: 'day', label: MODE_LABELS.day },
-            { value: 'night', label: MODE_LABELS.night },
-          ]}
+        <DisplaySettings
+          showNeighbors={showNeighbors}
+          onShowNeighborsChange={onShowNeighborsChange}
+          viewShift={viewShift}
+          onViewShiftChange={onViewShiftChange}
         />
-        <ChipMenu
-          title={SEASONS[season].label}
-          subtitle={`Saison · ${seasonChoice === 'auto' ? 'auto' : 'manuel'}`}
-          value={seasonChoice}
-          onChange={onSeasonChoiceChange}
-          options={[
-            { value: 'auto', label: 'Selon la date', detail: SEASONS[currentSeason()].label },
-            ...SEASON_ORDER.map((id) => ({ value: id, label: SEASONS[id].label })),
-          ]}
-        />
-        <WeatherMenu
-          choice={weatherChoice}
-          onChoiceChange={onWeatherChoiceChange}
-          weather={weather}
-          live={liveWeather}
-          error={weatherError}
-        />
-        <button className="chip" onClick={() => onShowNeighborsChange(!showNeighbors)}>
-          <strong>{showNeighbors ? 'Masquer' : 'Afficher'}</strong>
-          <span>Autres bâtiments</span>
-        </button>
       </header>
 
-      <aside className="rooms">
-        {rooms.map((room) => (
-          <button
-            key={room.id}
-            className={`room ${room.on ? 'on' : ''} ${room.offline ? 'offline' : ''}`}
-            onClick={() => onToggle(room.id)}
-          >
-            <span className="dot" />
-            <span className="name">{room.name}</span>
-            <span className="state">{room.offline ? 'Hors ligne' : room.on ? 'Allumé' : 'Éteint'}</span>
-          </button>
-        ))}
+      <aside className="sidebar">
+        <WeatherWidget
+          live={liveWeather}
+          error={weatherError}
+          expanded={settingsOpen}
+          onExpandedChange={setSettingsOpen}
+        />
+        {settingsOpen && (
+          <div className="render-flyout">
+            <RenderSettings
+              mode={mode}
+              modeChoice={modeChoice}
+              onModeChoiceChange={onModeChoiceChange}
+              season={season}
+              seasonChoice={seasonChoice}
+              onSeasonChoiceChange={onSeasonChoiceChange}
+              weather={weather}
+              weatherChoice={weatherChoice}
+              onWeatherChoiceChange={onWeatherChoiceChange}
+            />
+          </div>
+        )}
+        {calendarStatus !== 'idle' && (
+          <CalendarWidget
+            events={calendarEvents}
+            status={calendarStatus}
+            refreshing={calendarRefreshing}
+            onRefresh={onCalendarRefresh}
+          />
+        )}
+        <button
+          className="chip rooms-toggle"
+          onClick={() => setRoomsOpen(!roomsOpen)}
+          aria-expanded={roomsOpen}
+        >
+          <span
+            className={`status-dot status-${haStatus}`}
+            role="status"
+            aria-label={`Home Assistant : ${HA_STATUS[haStatus]}`}
+            title={`Home Assistant : ${HA_STATUS[haStatus]}`}
+          />
+          <strong>Appareils</strong>
+          <span>{lit} / {rooms.length} allumée{lit > 1 ? 's' : ''}</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+        <div className="rooms" hidden={!roomsOpen}>
+          <StatusCard status={haStatus} onRetry={onHaRetry} />
+          {rooms.map((room) => (
+            <button
+              key={room.id}
+              className={`room ${room.on ? 'on' : ''} ${room.offline ? 'offline' : ''}`}
+              onClick={() => onToggle(room.id)}
+            >
+              <span className="dot" />
+              <span className="name">{room.name}</span>
+              <span className="state">{room.offline ? 'Hors ligne' : room.on ? 'Allumé' : 'Éteint'}</span>
+            </button>
+          ))}
+        </div>
+        <button className="chip danger all-off" onClick={onAllOff} disabled={lit === 0}>
+          <strong>Tout éteindre</strong>
+        </button>
       </aside>
 
       {modeChoice === 'day' && (
@@ -107,8 +128,6 @@ export default function Overlay({
           <strong>{formatTime(dayMinutes)}</strong>
         </label>
       )}
-
-      <p className="hint">Glisser pour tourner · molette pour zoomer · cliquer une fenêtre pour l'allumer</p>
     </>
   )
 }

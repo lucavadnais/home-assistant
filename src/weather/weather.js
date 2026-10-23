@@ -52,15 +52,20 @@ export async function fetchCurrentWeather({ latitude, longitude }, signal) {
   const url =
     'https://api.open-meteo.com/v1/forecast' +
     `?latitude=${latitude}&longitude=${longitude}` +
-    '&current=temperature_2m,weather_code,is_day,wind_speed_10m,wind_gusts_10m&timezone=auto'
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_gusts_10m' +
+    '&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto'
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}`)
-  const { current } = await res.json()
+  const { current, daily } = await res.json()
   const wind = Math.round(effectiveWind(current.wind_speed_10m, current.wind_gusts_10m))
   return {
     weather: codeToWeather(current.weather_code, wind),
     wind,
     temperature: Math.round(current.temperature_2m),
+    feelsLike: Math.round(current.apparent_temperature),
+    humidity: Math.round(current.relative_humidity_2m),
+    high: Math.round(daily.temperature_2m_max[0]),
+    low: Math.round(daily.temperature_2m_min[0]),
     isDay: current.is_day === 1,
   }
 }

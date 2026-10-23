@@ -158,40 +158,65 @@ export function worldUvBox(w, h, d) {
 }
 
 // Someone seen side-on, walking to the right, in soft white on a transparent background,
-// 0.7 m × 1.05 m. Variants change the hair. Not repeated: the edges clamp, so the body runs on
-// below the bottom and nothing shows beside or above the figure.
-export const SILHOUETTE_VARIANTS = 3
+// 0.7 m × 1.05 m. Not repeated: the edges clamp, so the body runs on below the bottom and nothing
+// shows beside or above the figure. Variants:
+//   0 short hair · 1 ponytail · 2 bun · 3 man: broad shoulders, thick neck, short beard
+//   4 stockier person: round face, double chin, belly
+export const SILHOUETTES = { plain: 0, ponytail: 1, bun: 2, man: 3, stocky: 4 }
 
 export function silhouetteTexture(variant) {
   return canvasTexture(`silhouette${variant}`, 128, 192, (ctx, w, h) => {
+    const blob = (x, y, rx, ry, rot = 0) => {
+      ctx.beginPath()
+      ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2)
+      ctx.fill()
+    }
     ctx.filter = 'blur(3px)'
     ctx.fillStyle = '#fff'
+    const man = variant === SILHOUETTES.man
+    const stocky = variant === SILHOUETTES.stocky
     // Head, nose bump and neck
-    ctx.beginPath()
-    ctx.ellipse(62, 44, 16, 19, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.beginPath()
-    ctx.ellipse(77, 48, 4, 5, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillRect(55, 58, 14, 24)
-    if (variant === 1) {
-      // Ponytail
-      ctx.beginPath()
-      ctx.ellipse(42, 52, 7, 15, 0.35, 0, Math.PI * 2)
-      ctx.fill()
-    } else if (variant === 2) {
-      // Bun on top
+    blob(62, 44, stocky ? 18 : 16, stocky ? 20 : 19)
+    blob(77, 48, 4, 5)
+    if (man) {
+      ctx.fillRect(52, 56, 19, 26)
+      blob(70, 60, 8, 6) // short beard along the jaw
+    } else if (stocky) {
+      ctx.fillRect(51, 58, 22, 24)
+      blob(70, 62, 10, 6) // double chin
+    } else {
+      ctx.fillRect(55, 58, 14, 24)
+    }
+    if (variant === SILHOUETTES.ponytail) blob(42, 52, 7, 15, 0.35)
+    if (variant === SILHOUETTES.bun) {
       ctx.beginPath()
       ctx.arc(54, 24, 9, 0, Math.PI * 2)
       ctx.fill()
     }
-    // Torso: straight back, slight chest, rounded shoulder
+    // Torso
     ctx.beginPath()
-    ctx.moveTo(44, h + 10)
-    ctx.lineTo(42, 100)
-    ctx.quadraticCurveTo(42, 78, 58, 76)
-    ctx.quadraticCurveTo(80, 76, 82, 98)
-    ctx.lineTo(84, h + 10)
+    if (man) {
+      // Broad, squarer shoulders and a straight chest
+      ctx.moveTo(34, h + 10)
+      ctx.lineTo(32, 96)
+      ctx.quadraticCurveTo(32, 71, 58, 70)
+      ctx.quadraticCurveTo(92, 70, 94, 94)
+      ctx.lineTo(90, h + 10)
+    } else if (stocky) {
+      // Wide back and a round belly pushing forward
+      ctx.moveTo(36, h + 10)
+      ctx.lineTo(34, 102)
+      ctx.quadraticCurveTo(34, 76, 58, 74)
+      ctx.quadraticCurveTo(86, 74, 90, 100)
+      ctx.quadraticCurveTo(110, 136, 98, h + 10)
+    } else {
+      // Straight back, slight chest, rounded shoulder
+      ctx.moveTo(44, h + 10)
+      ctx.lineTo(42, 100)
+      ctx.quadraticCurveTo(42, 78, 58, 76)
+      ctx.quadraticCurveTo(80, 76, 82, 98)
+      ctx.lineTo(84, h + 10)
+    }
     ctx.closePath()
     ctx.fill()
     // The blur faded the bottom rows: repeat the last clean row so the body runs on unbroken.

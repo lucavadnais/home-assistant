@@ -1,5 +1,5 @@
-import { Ghost, Railing, Solid, StaticWindow, Wall } from './parts'
-import { brickTexture } from './textures'
+import { Ghost, Railing, Solid, StaticWindow, Wall, WindowPeople } from './parts'
+import { SILHOUETTES, brickTexture } from './textures'
 import { SNOW } from './seasons'
 
 // Right-hand neighbour: two-storey orange-brick duplex with a wide white eave, flat roof.
@@ -70,6 +70,8 @@ function EastEntrance({ lit }) {
   )
 }
 
+const RESIDENTS = [SILHOUETTES.stocky]
+
 export default function RightNeighbor({ season, lit }) {
   const brick = brickTexture('#b5653f')
   const roof = season.snow ? SNOW : '#cfcbc3'
@@ -83,8 +85,11 @@ export default function RightNeighbor({ season, lit }) {
       <Solid size={[9.7, 0.04, 14.5]} position={[8, 7.4, 1]} color={roof} cast={false} />
       <Solid size={[6.6, 0.05, 4]} position={[9.3, 6.53, -8]} color={roof} cast={false} />
 
-      <WestBay lit={lit} />
-      <EastEntrance lit={lit} />
+      {/* A single, stockier resident walks past these windows */}
+      <WindowPeople.Provider value={RESIDENTS}>
+        <WestBay lit={lit} />
+        <EastEntrance lit={lit} />
+      </WindowPeople.Provider>
     </group>
   )
 }

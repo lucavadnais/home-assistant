@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Scene from './scene/Scene'
 import Overlay from './ui/Overlay'
 import { ROOMS } from './data/rooms'
@@ -7,9 +7,22 @@ import useLiveWeather from './weather/useLiveWeather'
 import { isDaytime, minutesOf, sunPosition, sunTimes, useNow } from './weather/sun'
 import { WEATHERS } from './weather/weather'
 import useHomeAssistant from './ha/useHomeAssistant'
+import useCalendar from './ha/useCalendar'
+
+// Display options are remembered in this browser (storage may be unavailable)
+const stored = (key, fallback) => {
+  try { return localStorage.getItem(key) ?? fallback } catch { return fallback }
+}
+const store = (key, value) => {
+  try { localStorage.setItem(key, String(value)) } catch { /* not persisted */ }
+}
 
 export default function App() {
-  const [showNeighbors, setShowNeighbors] = useState(true)
+  const [showNeighbors, setShowNeighbors] = useState(() => stored('showNeighbors', 'true') === 'true')
+  // Where the house sits on screen, as a fraction of its width: 0 = centred, negative = to the left
+  const [viewShift, setViewShift] = useState(() => Number(stored('viewShift', 0)) || 0)
+  useEffect(() => store('showNeighbors', showNeighbors), [showNeighbors])
+  useEffect(() => store('viewShift', viewShift), [viewShift])
   // 'auto' follows the calendar; otherwise one of SEASONS' ids
   const [seasonChoice, setSeasonChoice] = useState('auto')
   const now = useNow()
@@ -38,6 +51,7 @@ export default function App() {
   const wind = weatherChoice === 'auto' && live ? live.wind : WEATHERS[weather].wind
 
   const ha = useHomeAssistant()
+  const calendar = useCalendar(ha)
   // Every room mirrors its Home Assistant entity, so the model always shows the real state.
   // Until Home Assistant answers, or if the entity is missing, the room shows as offline.
   const rooms = useMemo(
@@ -71,6 +85,7 @@ export default function App() {
         sun={sun}
         hour={modeChoice === 'day' ? simMinutes / 60 : undefined}
         showNeighbors={showNeighbors}
+        viewShift={viewShift}
         season={season}
         weather={weather}
         wind={wind}
@@ -82,7 +97,6 @@ export default function App() {
         mode={mode}
         modeChoice={modeChoice}
         onModeChoiceChange={setModeChoice}
-        daytime={daytime}
         daySpan={daySpan}
         dayMinutes={simMinutes}
         onDayMinutesChange={setDayMinutes}
@@ -95,8 +109,15 @@ export default function App() {
         liveWeather={live}
         weatherError={error}
         haStatus={ha.status}
+        onHaRetry={ha.retry}
+        calendarEvents={calendar.events}
+        calendarStatus={calendar.status}
+        calendarRefreshing={calendar.refreshing}
+        onCalendarRefresh={calendar.refresh}
         showNeighbors={showNeighbors}
         onShowNeighborsChange={setShowNeighbors}
+        viewShift={viewShift}
+        onViewShiftChange={setViewShift}
       />
     </div>
   )
