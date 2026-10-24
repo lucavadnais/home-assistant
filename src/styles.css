@@ -21,6 +21,21 @@ html, body, #root { margin: 0; height: 100%; background: #0b1220; }
 
 .app { position: relative; height: 100%; overflow: hidden; }
 
+/* Lite mode: no backdrop blur (redone on every frame of the 3D scene beneath it, too slow on a
+   TV box), so the glass gets a denser tint to stay readable. */
+.app.lite {
+  --glass: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)), rgba(16, 24, 38, 0.72);
+  --glass-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)), rgba(16, 24, 38, 0.82);
+  --glass-hover: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06)), rgba(16, 24, 38, 0.72);
+  --glass-warm: linear-gradient(135deg, rgba(255, 184, 92, 0.38), rgba(255, 184, 92, 0.12)), rgba(16, 24, 38, 0.7);
+  --glass-blur: none;
+}
+/* Lite mode's vignette, in place of the post-processing one; --darkness is set by the scene. */
+.vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, var(--darkness)) 130%);
+}
+
 .chip, .room, .weather-widget, .render-flyout, .hint, .time-slider, .agenda, .display-panel {
   background: var(--glass);
   border: 1px solid var(--glass-border);
@@ -30,12 +45,17 @@ html, body, #root { margin: 0; height: 100%; background: #0b1220; }
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
+/* TV / computer: agenda in the top-left corner, display settings gear in the bottom-left one. */
+.agenda-corner { position: absolute; top: 16px; left: 16px; width: 260px; }
+.gear-corner { position: absolute; bottom: 16px; left: 16px; }
+.gear-corner .display-panel { top: auto; bottom: calc(100% + 10px); }
+/* Phone: top row with the gear, then the weather card filling the rest of the width. */
 .topbar {
-  position: absolute; top: 16px; left: 16px; right: 260px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  pointer-events: none;
+  position: absolute; top: 16px; left: 16px; right: 16px;
+  display: flex; align-items: flex-start; gap: 10px;
 }
-.topbar > * { pointer-events: auto; }
+.weather-slot { position: relative; }
+.topbar .weather-slot { flex: 1; min-width: 0; }
 
 .chip {
   display: flex; flex-direction: column; align-items: flex-start;
@@ -51,7 +71,7 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
 .chip:disabled { opacity: 0.5; cursor: default; }
 .chip:disabled:hover { background: var(--glass); border-color: var(--glass-border); }
 
-/* Google Calendar card, under the weather: the ongoing event, then the next ones folded
+/* Google Calendar card (top-left corner, or above the devices on a phone): the ongoing event, then the next ones folded
    behind the button at the bottom. */
 .agenda { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; }
 .agenda-header {
@@ -166,10 +186,13 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
   display: flex; flex-direction: column; gap: 8px;
 }
 /* The column never runs past the screen: the device list (and the agenda's) scroll inside it
-   instead. The column itself can't scroll, or it would clip the render flyout beside it. */
+   instead. The column itself can't scroll, or it would clip the render flyout beside it.
+   A scrolling box clips what overflows it, cards' shadows included: the padding leaves them
+   room and the negative margin takes it back from the layout. */
 .rooms {
   display: flex; flex-direction: column; gap: 8px;
   min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+  padding: 12px 16px 28px; margin: -12px -16px -28px;
 }
 .rooms[hidden] { display: none; }
 /* Header that folds the device list: title, count, chevron (points up when folded). */
@@ -252,6 +275,8 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
 .room .name { font-size: 13px; font-weight: 600; }
 .room .state { font-size: 11px; color: var(--muted); }
 .room.on { background: var(--glass-warm); border-color: rgba(255, 184, 92, 0.5); }
+/* Cards stacked 8px apart: the shared glass shadow would pile up between them, so a lighter one. */
+.room { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.28); }
 .room.on .state { color: #ffe2b8; }
 .room.offline { opacity: 0.5; }
 .room.on .dot { background: var(--warm); box-shadow: 0 0 10px var(--warm); }
@@ -267,12 +292,12 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
 
 @media (max-width: 700px) {
   .time-slider { bottom: 52px; }
-  .topbar { right: 16px; }
   .agenda-days { max-height: 30vh; }
-  .sidebar { top: auto; bottom: 40px; left: 16px; right: 16px; width: auto; max-height: calc(100% - 120px); }
+  /* Bottom column (agenda, then devices), clear of the top row */
+  .sidebar { top: auto; bottom: 40px; left: 16px; right: 16px; width: auto; max-height: calc(100% - 150px); }
   .rooms { flex-direction: row; overflow-x: auto; touch-action: pan-x; flex: none; }
   .room { flex: 0 0 150px; }
   .weather-details { display: none; }
-  /* No room beside the card on a phone: the panel opens above the bottom bar instead. */
-  .render-flyout { top: auto; bottom: calc(100% + 10px); right: 0; left: 0; width: auto; }
+  /* No room beside the card on a phone: the panel opens below the top row, gear included. */
+  .render-flyout { top: calc(100% + 10px); right: 0; left: -50px; width: auto; }
 }

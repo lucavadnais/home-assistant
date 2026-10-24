@@ -17,12 +17,22 @@ const store = (key, value) => {
   try { localStorage.setItem(key, String(value)) } catch { /* not persisted */ }
 }
 
+// Lite mode for weak GPUs (TV boxes): `?lite` / `?lite=0` in the URL wins, then the choice saved
+// in this browser; off by default.
+function initialLite() {
+  const param = new URLSearchParams(window.location.search).get('lite')
+  if (param !== null) return param !== '0' && param !== 'false'
+  return stored('lite', 'false') === 'true'
+}
+
 export default function App() {
   const [showNeighbors, setShowNeighbors] = useState(() => stored('showNeighbors', 'true') === 'true')
   // Where the house sits on screen, as a fraction of its width: 0 = centred, negative = to the left
   const [viewShift, setViewShift] = useState(() => Number(stored('viewShift', 0)) || 0)
   useEffect(() => store('showNeighbors', showNeighbors), [showNeighbors])
   useEffect(() => store('viewShift', viewShift), [viewShift])
+  const [lite, setLite] = useState(initialLite)
+  useEffect(() => store('lite', lite), [lite])
   // 'auto' follows the calendar; otherwise one of SEASONS' ids
   const [seasonChoice, setSeasonChoice] = useState('auto')
   const now = useNow()
@@ -77,7 +87,7 @@ export default function App() {
   }, [rooms, ha])
 
   return (
-    <div className="app">
+    <div className={lite ? 'app lite' : 'app'}>
       <Scene
         rooms={rooms}
         onToggle={toggleRoom}
@@ -89,6 +99,7 @@ export default function App() {
         season={season}
         weather={weather}
         wind={wind}
+        lite={lite}
       />
       <Overlay
         rooms={rooms}
@@ -118,6 +129,8 @@ export default function App() {
         onShowNeighborsChange={setShowNeighbors}
         viewShift={viewShift}
         onViewShiftChange={setViewShift}
+        lite={lite}
+        onLiteChange={setLite}
       />
     </div>
   )

@@ -12,6 +12,7 @@ Construit avec React, Three.js ([react-three-fiber](https://github.com/pmndrs/re
 - **Ambiance** : jour / nuit, quatre saisons (la saison actuelle par défaut).
 - **Météo** : conditions actuelles à Montréal via [Open-Meteo](https://open-meteo.com/) (gratuit, sans clé), rafraîchies toutes les 15 min, ou préréglage manuel (pluie, orage, neige, tempête, brouillard, vent…). Nuages, précipitations, éclairs et vent sont animés.
 - **Environnement** : bâtiments voisins (masquables), plantes, circulation.
+- **Mode Lite** : pour les appareils peu puissants (boîtier TV) : résolution native, pas de post-traitement ni de flou derrière les panneaux, ombres recalculées seulement quand la scène change, 30 i/s et moins de particules. Désactivé par défaut, réglable dans l'engrenage, ou forcé avec `?lite` (`?lite=0` pour le désactiver) dans l'URL.
 
 ## Démarrage
 
@@ -86,6 +87,8 @@ Pour servir l'app en continu sur le réseau local, depuis le Pi qui fait tourner
    ```
 
    L'app est alors accessible sur `http://<ip-du-pi>:8080` depuis n'importe quel appareil du réseau.
+
+**Sur une télé** (Google TV Streamer avec Fully Kiosk Browser par exemple), mettre `http://<ip-du-pi>:8080/?lite` comme Start URL pour garantir le mode Lite.
 
 **Mettre à jour** : `git pull`, refaire l'étape 3, puis recharger la page (inutile de redémarrer nginx).
 

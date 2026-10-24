@@ -24,15 +24,15 @@ const GLASS = '#25303b'
 
 // Low-poly sedan, 4.2 m long, nose toward +x. `lights` turns head/tail lights on;
 // `fading` makes its materials transparent so a driving car can fade in and out.
-function Car({ color, lights = false, snow = false, fading = false, ...props }) {
+function Car({ color, lights = false, snow = false, fading = false, shadows = true, ...props }) {
   const mat = { transparent: fading }
   return (
     <group {...props}>
-      <mesh position={[0, 0.6, 0]} castShadow>
+      <mesh position={[0, 0.6, 0]} castShadow={shadows}>
         <boxGeometry args={[4.2, 0.65, 1.8]} />
         <meshStandardMaterial color={color} roughness={0.4} metalness={0.3} {...mat} />
       </mesh>
-      <mesh position={[-0.25, 1.17, 0]} castShadow>
+      <mesh position={[-0.25, 1.17, 0]} castShadow={shadows}>
         <boxGeometry args={[2.2, 0.5, 1.6]} />
         <meshStandardMaterial color={GLASS} roughness={0.2} metalness={0.4} {...mat} />
       </mesh>
@@ -75,7 +75,7 @@ function nextGap(hour) {
 
 // Cars driving through. Each of the `count` drivers waits, fades in at the west edge of the plot,
 // drives east and fades out at the east edge; a car slows to the speed of the one ahead instead of running into it.
-function Through({ count = 2, lights }) {
+function Through({ count = 2, lights, shadows }) {
   const groups = useRef([])
   const cars = useRef(
     Array.from({ length: count }, (_, i) => ({ x: null, speed: 0, wait: between(Math.random(), 3, 20) + i * 15, color: COLORS[i] })),
@@ -118,7 +118,7 @@ function Through({ count = 2, lights }) {
 
   return colors.map((color, i) => (
     <group key={i} ref={(g) => (groups.current[i] = g)} position={[ENTER_X, 0, DRIVE_Z]} visible={false}>
-      <Car color={color} lights={lights} fading />
+      <Car color={color} lights={lights} shadows={shadows} fading />
     </group>
   ))
 }
@@ -155,10 +155,11 @@ function Parked({ snow }) {
   })
 }
 
-export default function Traffic({ night, snow }) {
+// `movingShadows` off: driving cars cast no shadow (the shadow map isn't redrawn every frame).
+export default function Traffic({ night, snow, movingShadows = true }) {
   return (
     <group>
-      <Through lights={night} />
+      <Through lights={night} shadows={movingShadows} />
       <Parked snow={snow} />
     </group>
   )

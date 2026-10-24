@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import CalendarWidget from './CalendarWidget'
 import DisplaySettings from './DisplaySettings'
 import RenderSettings from './RenderSettings'
@@ -14,6 +14,22 @@ const HA_STATUS = {
   error: 'Hors ligne',
 }
 
+// Same breakpoint as the phone layout in styles.css
+const PHONE = '(max-width: 700px)'
+
+// Whether the media `query` matches, kept up to date as the window changes.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const onChange = () => setMatches(mql.matches)
+    onChange()
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [query])
+  return matches
+}
+
 // Minutes since midnight → "14 h 05"
 const formatTime = (m) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`
 
@@ -23,6 +39,7 @@ export default function Overlay({
   season, seasonChoice, onSeasonChoiceChange,
   weatherChoice, onWeatherChoiceChange, weather, liveWeather, weatherError,
   haStatus, onHaRetry, showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange,
+  lite, onLiteChange,
   calendarEvents, calendarStatus, calendarRefreshing, onCalendarRefresh,
 }) {
   const lit = rooms.filter((r) => r.on).length
@@ -37,47 +54,71 @@ export default function Overlay({
     try { localStorage.setItem('roomsOpen', String(open)) } catch { /* not persisted */ }
   }
 
+  // TV / computer: agenda top-left, gear bottom-left, weather atop the right column.
+  // Phone: gear and weather share the top row; the agenda goes at the bottom, above the devices.
+  const phone = useMediaQuery(PHONE)
+
+  const agenda = calendarStatus !== 'idle' && (
+    <CalendarWidget
+      events={calendarEvents}
+      status={calendarStatus}
+      refreshing={calendarRefreshing}
+      onRefresh={onCalendarRefresh}
+    />
+  )
+  const gear = (
+    <DisplaySettings
+      showNeighbors={showNeighbors}
+      onShowNeighborsChange={onShowNeighborsChange}
+      viewShift={viewShift}
+      onViewShiftChange={onViewShiftChange}
+      lite={lite}
+      onLiteChange={onLiteChange}
+    />
+  )
+  // The render settings flyout is positioned against the weather card, wherever it sits.
+  const weatherCard = (
+    <div className="weather-slot">
+      <WeatherWidget
+        live={liveWeather}
+        error={weatherError}
+        expanded={settingsOpen}
+        onExpandedChange={setSettingsOpen}
+      />
+      {settingsOpen && (
+        <div className="render-flyout">
+          <RenderSettings
+            mode={mode}
+            modeChoice={modeChoice}
+            onModeChoiceChange={onModeChoiceChange}
+            season={season}
+            seasonChoice={seasonChoice}
+            onSeasonChoiceChange={onSeasonChoiceChange}
+            weather={weather}
+            weatherChoice={weatherChoice}
+            onWeatherChoiceChange={onWeatherChoiceChange}
+          />
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <>
-      <header className="topbar">
-        <DisplaySettings
-          showNeighbors={showNeighbors}
-          onShowNeighborsChange={onShowNeighborsChange}
-          viewShift={viewShift}
-          onViewShiftChange={onViewShiftChange}
-        />
-      </header>
+      {phone ? (
+        <header className="topbar">
+          {gear}
+          {weatherCard}
+        </header>
+      ) : (
+        <>
+          {agenda && <div className="agenda-corner">{agenda}</div>}
+          <div className="gear-corner">{gear}</div>
+        </>
+      )}
 
       <aside className="sidebar">
-        <WeatherWidget
-          live={liveWeather}
-          error={weatherError}
-          expanded={settingsOpen}
-          onExpandedChange={setSettingsOpen}
-        />
-        {settingsOpen && (
-          <div className="render-flyout">
-            <RenderSettings
-              mode={mode}
-              modeChoice={modeChoice}
-              onModeChoiceChange={onModeChoiceChange}
-              season={season}
-              seasonChoice={seasonChoice}
-              onSeasonChoiceChange={onSeasonChoiceChange}
-              weather={weather}
-              weatherChoice={weatherChoice}
-              onWeatherChoiceChange={onWeatherChoiceChange}
-            />
-          </div>
-        )}
-        {calendarStatus !== 'idle' && (
-          <CalendarWidget
-            events={calendarEvents}
-            status={calendarStatus}
-            refreshing={calendarRefreshing}
-            onRefresh={onCalendarRefresh}
-          />
-        )}
+        {phone ? agenda : weatherCard}
         <button
           className="chip rooms-toggle"
           onClick={() => setRoomsOpen(!roomsOpen)}

@@ -8,7 +8,7 @@ const BOUNDS = { x: [-14, 13], y: [0, 14], z: [-18.5, 21.5] }
 const span = (r) => r[0] + Math.random() * (r[1] - r[0])
 
 // wind: sideways drift (units/s) downwind; flakes wrap around the plot horizontally.
-function Snow({ count = 1400, speed = 1.4, wind = 0, size = 3 }) {
+function Snow({ count, speed = 1.4, wind = 0, size = 3 }) {
   const points = useRef()
   const { positions, phases } = useMemo(() => {
     const positions = new Float32Array(count * 3)
@@ -95,7 +95,8 @@ function Rain({ count, speed, color, wind }) {
 const ramp = (v, from, to) => Math.min(1, Math.max(0, (v - from) / (to - from)))
 
 // Wind gusts: faint horizontal streaks racing downwind; more, faster and brighter as wind rises.
-export function Gusts({ strength, count = 160 }) {
+export function Gusts({ strength, density = 1 }) {
+  const count = Math.round(160 * density)
   const lines = useRef()
   const length = 1.8
 
@@ -143,7 +144,8 @@ export function Gusts({ strength, count = 160 }) {
 }
 
 // Autumn leaves torn off and tumbling downwind; how many depends on the wind.
-export function BlowingLeaves({ colors, strength, count = 90 }) {
+export function BlowingLeaves({ colors, strength, density = 1 }) {
+  const count = Math.round(90 * density)
   const mesh = useRef()
   const leaves = useMemo(
     () =>
@@ -194,10 +196,12 @@ export function BlowingLeaves({ colors, strength, count = 90 }) {
 }
 
 // `wind` is the 0..1 strength: it slants the rain and drifts the snow downwind.
-export default function Precipitation({ type, wind = 0 }) {
-  if (type === 'snow') return <Snow wind={wind * 14} />
-  if (type === 'snowstorm') return <Snow count={4000} speed={3.5} wind={wind * 14} size={2.4} />
-  if (type === 'rain') return <Rain count={900} speed={16} color="#b9cde0" wind={wind} />
-  if (type === 'storm') return <Rain count={1500} speed={22} color="#c6d4e2" wind={wind} />
+// `density` scales the number of particles (lite mode).
+export default function Precipitation({ type, wind = 0, density = 1 }) {
+  const n = (count) => Math.round(count * density)
+  if (type === 'snow') return <Snow count={n(1400)} wind={wind * 14} />
+  if (type === 'snowstorm') return <Snow count={n(4000)} speed={3.5} wind={wind * 14} size={2.4} />
+  if (type === 'rain') return <Rain count={n(900)} speed={16} color="#b9cde0" wind={wind} />
+  if (type === 'storm') return <Rain count={n(1500)} speed={22} color="#c6d4e2" wind={wind} />
   return null
 }

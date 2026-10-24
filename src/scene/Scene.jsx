@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, OrthographicCamera } from '@react-three/drei'
@@ -79,6 +79,51 @@ const fitZoom = () => THREE.MathUtils.clamp(
   MIN_ZOOM, MAX_ZOOM,
 )
 
+// Lite mode, for weak GPUs (TV boxes): native resolution, no post-processing (the vignette is
+// CSS), a smaller shadow map redrawn only when the scene changes, 30 fps and fewer particles.
+const LITE_FPS = 30
+const LITE_PARTICLES = 0.35
+const SHADOW_REFRESH_MS = 10 * 1000
+
+// Drives the render loop at `fps` instead of every display frame (needs <Canvas frameloop="never">).
+function FrameLimiter({ fps }) {
+  const advance = useThree((s) => s.advance)
+  useEffect(() => {
+    const interval = 1000 / fps
+    let start = null
+    let last = -Infinity
+    let id
+    const loop = (t) => {
+      id = requestAnimationFrame(loop)
+      // 1 ms slack: on a 60 Hz screen frames come every ~16.7 ms, so 30 fps keeps every other one
+      if (t - last < interval - 1) return
+      last = t
+      start ??= t
+      advance((t - start) / 1000) // seconds since the loop started, like the clock it replaces
+    }
+    id = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(id)
+  }, [advance, fps])
+  return null
+}
+
+// Draws the shadow map on each render of the scene (new sun position, season, lights…) and every
+// few seconds (parked cars), instead of every frame. Whatever moves on its own must not cast
+// shadows here, or its shadow would stay behind.
+function StaticShadows() {
+  const gl = useThree((s) => s.gl)
+  useLayoutEffect(() => {
+    gl.shadowMap.autoUpdate = false
+    const id = setInterval(() => { gl.shadowMap.needsUpdate = true }, SHADOW_REFRESH_MS)
+    return () => {
+      clearInterval(id)
+      gl.shadowMap.autoUpdate = true
+    }
+  }, [gl])
+  useEffect(() => { gl.shadowMap.needsUpdate = true })
+  return null
+}
+
 // Slides the framing sideways by `shift`, a fraction of the screen width, without moving the
 // camera: orbiting and zoom still pivot on the house. Positive moves the house to the right.
 function ViewShift({ shift }) {
@@ -92,7 +137,7 @@ function ViewShift({ shift }) {
   return null
 }
 
-export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors, viewShift, season: seasonId, weather: weatherId, wind: windKmh }) {
+export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors, viewShift, season: seasonId, weather: weatherId, wind: windKmh, lite }) {
   const season = SEASONS[seasonId]
   const weather = WEATHERS[weatherId]
   const day = mode === 'day'
@@ -103,59 +148,70 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
   const [zoom] = useState(fitZoom)
   const windowGlow = day ? THREE.MathUtils.lerp(1, DAY_WINDOW_GLOW, THREE.MathUtils.smoothstep(sun.elevation, 0, 10)) : 1
 
+  const particles = lite ? LITE_PARTICLES : 1
+
+  // Lite settings are read when the renderer is created: switching remounts the canvas.
+  // `flat` (no tone mapping) matches what the EffectComposer sets, so both modes look alike.
   return (
-    <Canvas shadows dpr={[1, 2]}>
-      <color attach="background" args={[l.background]} />
-      {day && <Sky top={sky[0]} horizon={sky[1]} />}
-      {weather.fog && <fog attach="fog" args={[day ? '#d3d9df' : '#1c2433', 35, 75]} />}
-      {/* Clear nights stay cloudless; overcast nights get dark clouds */}
-      {(day || weather.clouds > 3) && (
-        <Clouds count={weather.clouds} color={day ? weather.cloudColor : '#3a4354'} glow={day ? 0.3 : 0.05} speed={1 + 8 * wind} />
-      )}
-      <OrthographicCamera makeDefault position={CAMERA_POSITION} zoom={zoom} near={-100} far={300} />
-      <OrbitControls
-        target={TARGET}
-        enablePan={false}
-        minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
-        maxPolarAngle={Math.PI / 2 - MIN_ELEVATION}
-        enableDamping
-        makeDefault
-      />
-      <IdleDrift />
-      <ViewShift shift={viewShift} />
+    <>
+      <Canvas key={lite ? 'lite' : 'full'} shadows flat dpr={lite ? 1 : [1, 2]} frameloop={lite ? 'never' : 'always'}>
+        {lite && <FrameLimiter fps={LITE_FPS} />}
+        {lite && <StaticShadows />}
+        <color attach="background" args={[l.background]} />
+        {day && <Sky top={sky[0]} horizon={sky[1]} />}
+        {weather.fog && <fog attach="fog" args={[day ? '#d3d9df' : '#1c2433', 35, 75]} />}
+        {/* Clear nights stay cloudless; overcast nights get dark clouds */}
+        {(day || weather.clouds > 3) && (
+          <Clouds count={weather.clouds} color={day ? weather.cloudColor : '#3a4354'} glow={day ? 0.3 : 0.05} speed={1 + 8 * wind} />
+        )}
+        <OrthographicCamera makeDefault position={CAMERA_POSITION} zoom={zoom} near={-100} far={300} />
+        <OrbitControls
+          target={TARGET}
+          enablePan={false}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
+          maxPolarAngle={Math.PI / 2 - MIN_ELEVATION}
+          enableDamping
+          makeDefault
+        />
+        <IdleDrift />
+        <ViewShift shift={viewShift} />
 
-      <ambientLight intensity={l.ambient} />
-      <hemisphereLight args={['#bcd3ff', '#2a3a20', l.hemi]} />
-      <directionalLight
-        position={l.position}
-        intensity={l.sun * weather.sun}
-        color={l.sunColor}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0004}
-        shadow-camera-left={-26}
-        shadow-camera-right={26}
-        shadow-camera-top={26}
-        shadow-camera-bottom={-26}
-      />
+        <ambientLight intensity={l.ambient} />
+        <hemisphereLight args={['#bcd3ff', '#2a3a20', l.hemi]} />
+        <directionalLight
+          position={l.position}
+          intensity={l.sun * weather.sun}
+          color={l.sunColor}
+          castShadow
+          shadow-mapSize={lite ? [1024, 1024] : [2048, 2048]}
+          shadow-bias={-0.0004}
+          shadow-camera-left={-26}
+          shadow-camera-right={26}
+          shadow-camera-top={26}
+          shadow-camera-bottom={-26}
+        />
 
-      <WindowGlow.Provider value={windowGlow}>
-        <Surroundings season={season} wind={wind} />
-        {showNeighbors ? <Duplex season={season} lit={neighborLit} /> : <DuplexGhost />}
-        {showNeighbors ? <RightNeighbor season={season} lit={neighborLit} /> : <RightNeighborGhost />}
-        <RearHouse rooms={rooms} onToggle={onToggle} season={season} />
-      </WindowGlow.Provider>
-      <Precipitation key={weatherId} type={weather.precipitation} wind={wind} />
-      {weather.lightning && <Lightning />}
-      <Traffic night={!day} snow={season.snow} />
-      <Gusts strength={wind} />
-      {season.fallenLeaves && <BlowingLeaves colors={season.fallenLeaves} strength={wind} />}
+        <WindowGlow.Provider value={windowGlow}>
+          <Surroundings season={season} wind={wind} />
+          {showNeighbors ? <Duplex season={season} lit={neighborLit} /> : <DuplexGhost />}
+          {showNeighbors ? <RightNeighbor season={season} lit={neighborLit} /> : <RightNeighborGhost />}
+          <RearHouse rooms={rooms} onToggle={onToggle} season={season} />
+        </WindowGlow.Provider>
+        <Precipitation key={weatherId} type={weather.precipitation} wind={wind} density={particles} />
+        {weather.lightning && <Lightning />}
+        <Traffic night={!day} snow={season.snow} movingShadows={!lite} />
+        <Gusts strength={wind} density={particles} />
+        {season.fallenLeaves && <BlowingLeaves colors={season.fallenLeaves} strength={wind} density={particles} />}
 
-      <EffectComposer>
-        <Bloom mipmapBlur luminanceThreshold={1} intensity={0.9} radius={0.6} />
-        <Vignette offset={0.3} darkness={l.vignette} />
-      </EffectComposer>
-    </Canvas>
+        {!lite && (
+          <EffectComposer>
+            <Bloom mipmapBlur luminanceThreshold={1} intensity={0.9} radius={0.6} />
+            <Vignette offset={0.3} darkness={l.vignette} />
+          </EffectComposer>
+        )}
+      </Canvas>
+      {lite && <div className="vignette" style={{ '--darkness': l.vignette }} />}
+    </>
   )
 }
