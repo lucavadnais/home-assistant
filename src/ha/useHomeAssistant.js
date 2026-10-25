@@ -72,5 +72,16 @@ export default function useHomeAssistant() {
     return response
   }, [])
 
-  return { status, entities, toggle, turnOff, retry, getEvents }
+  // Tasks to do and done, keyed by todo entity: { 'todo.x': { items: [{ uid, summary, due, ... }] } }
+  // Same local copy as the calendars: `sync` pulls from Google first.
+  const getTasks = useCallback(async (entityIds, sync = false) => {
+    if (!connection.current) return null
+    if (sync) await callService(connection.current, 'homeassistant', 'update_entity', undefined, { entity_id: entityIds })
+    const { response } = await callService(
+      connection.current, 'todo', 'get_items', { status: ['needs_action', 'completed'] }, { entity_id: entityIds }, true,
+    )
+    return response
+  }, [])
+
+  return { status, entities, toggle, turnOff, retry, getEvents, getTasks }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AGENDA_DAYS, CALENDARS } from '../data/calendars'
+import { AGENDA_DAYS, CALENDARS, TASK_LISTS } from '../data/calendars'
 
 const REFRESH_MS = 5 * 60 * 1000
 
@@ -10,7 +10,50 @@ const parseDate = (s) => {
   return new Date(y, m - 1, d)
 }
 
-// Upcoming events of every calendar in CALENDARS, merged and sorted by start.
+// Google descriptions may be HTML (links, line breaks): keep the text and its line breaks only.
+function plainText(html) {
+  if (!html) return ''
+  const withBreaks = html.replace(/<br\s*\/?>|<\/(p|div|li)>/gi, '\n')
+  const text = new DOMParser().parseFromString(withBreaks, 'text/html').body.textContent
+  return text.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
+
+// Google Tasks with a due date, shaped like events: a task due on a day spans that whole day,
+// an overdue one is moved to today. Done tasks stay on their day (`done`, shown struck through),
+// except past ones. Tasks without a due date or past the agenda are left out.
+function tasksAsEvents(response, now) {
+  const today = addDays(now, 0)
+  const limit = addDays(today, AGENDA_DAYS)
+  return TASK_LISTS.flatMap((list) =>
+    (response?.[list.entity]?.items ?? []).flatMap((t) => {
+      if (!t.due) return []
+      const due = parseDate(t.due)
+      const allDay = t.due.length <= 10
+      const done = t.status === 'completed'
+      if (due >= limit || (done && due < today)) return []
+      const overdue = !done && due < (allDay ? today : now)
+      const wholeDay = allDay || overdue || done
+      const start = overdue ? today : done ? addDays(due, 0) : due
+      return [{
+        id: `${list.entity}|${t.uid}`,
+        summary: t.summary,
+        description: plainText(t.description),
+        due,
+        start,
+        end: wholeDay ? addDays(start, 1) : due,
+        allDay: wholeDay,
+        overdue,
+        done,
+        calendar: list,
+        task: true,
+      }]
+    }),
+  )
+}
+
+// Upcoming events of every calendar in CALENDARS and due tasks of TASK_LISTS, merged and sorted by start.
 // status: 'idle' (Home Assistant not connected) | 'loading' | 'ready' | 'error'
 // `refreshing` is true while a request is in flight; `refresh()` reloads right away.
 export default function useCalendar(ha) {
@@ -22,7 +65,8 @@ export default function useCalendar(ha) {
   const syncNext = useRef(false)
   const connected = ha.status === 'connected'
   // A calendar entity changes state when one of its events starts or ends: refresh then too.
-  const signature = CALENDARS.map((c) => ha.entities[c.entity]?.last_changed).join()
+  // A todo entity's state is its count of tasks left, so it changes whenever a task is added or done.
+  const signature = [...CALENDARS, ...TASK_LISTS].map((c) => ha.entities[c.entity]?.last_changed).join()
 
   useEffect(() => {
     if (!connected) return setStatus('idle')
@@ -32,20 +76,26 @@ export default function useCalendar(ha) {
       setRefreshing(true)
       const sync = syncNext.current
       syncNext.current = false
-      return ha.getEvents(CALENDARS.map((c) => c.entity), AGENDA_DAYS, sync)
-        .then((response) => {
+      // A missing task list must not take the calendars down with it
+      const tasks = TASK_LISTS.length
+        ? ha.getTasks(TASK_LISTS.map((l) => l.entity), sync).catch(() => null)
+        : null
+      return Promise.all([ha.getEvents(CALENDARS.map((c) => c.entity), AGENDA_DAYS, sync), tasks])
+        .then(([response, taskResponse]) => {
           if (cancelled || !response) return
-          const merged = CALENDARS.flatMap((cal) =>
+          const calendarEvents = CALENDARS.flatMap((cal) =>
             (response[cal.entity]?.events ?? []).map((e) => ({
               id: `${cal.entity}|${e.start}|${e.summary}`,
               summary: e.summary,
               location: e.location,
+              description: plainText(e.description),
               start: parseDate(e.start),
               end: parseDate(e.end),
               allDay: e.start.length <= 10,
               calendar: cal,
             })),
           )
+          const merged = [...calendarEvents, ...tasksAsEvents(taskResponse, new Date())]
           setEvents(merged.sort((a, b) => a.start - b.start))
           setStatus('ready')
         })
@@ -61,7 +111,7 @@ export default function useCalendar(ha) {
       clearInterval(timer)
       setRefreshing(false)
     }
-  }, [connected, signature, attempt, ha.getEvents])
+  }, [connected, signature, attempt, ha.getEvents, ha.getTasks])
 
   const refresh = useCallback(() => {
     syncNext.current = true

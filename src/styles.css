@@ -46,7 +46,7 @@ html, body, #root { margin: 0; height: 100%; background: #0b1220; }
 }
 
 /* TV / computer: agenda in the top-left corner, display settings gear in the bottom-left one. */
-.agenda-corner { position: absolute; top: 16px; left: 16px; width: 260px; }
+.agenda-corner { position: absolute; top: 16px; left: 16px; width: 290px; }
 .gear-corner { position: absolute; bottom: 16px; left: 16px; }
 .gear-corner .display-panel { top: auto; bottom: calc(100% + 10px); }
 /* Phone: top row with the gear, then the weather card filling the rest of the width. */
@@ -71,7 +71,7 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
 .chip:disabled { opacity: 0.5; cursor: default; }
 .chip:disabled:hover { background: var(--glass); border-color: var(--glass-border); }
 
-/* Google Calendar card (top-left corner, or above the devices on a phone): the ongoing event, then the next ones folded
+/* Google Calendar and Tasks card (top-left corner, or above the devices on a phone): the ongoing event, then the next ones folded
    behind the button at the bottom. */
 .agenda { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; }
 .agenda-header {
@@ -90,13 +90,48 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
 .agenda-refresh:disabled { cursor: default; }
 .agenda-refresh.spinning svg { animation: agenda-spin 0.8s linear infinite; }
 @keyframes agenda-spin { to { transform: rotate(360deg); } }
-.agenda-now { display: flex; flex-direction: column; gap: 3px; padding: 0 16px 12px; }
-.agenda-now + .agenda-now { padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
-.agenda-now-title { font-size: 17px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
-.agenda-now-time { font-size: 12px; font-variant-numeric: tabular-nums; }
-.agenda-now-location { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.agenda-now-progress { height: 3px; margin-top: 6px; border-radius: 2px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
-.agenda-now-progress div { height: 100%; background: var(--cal); }
+/* Ongoing event or task due today: a sheet tinted with its calendar colour, accent bar on the left,
+   with everything written out (no hover on a TV). */
+.agenda-now-list { display: flex; flex-direction: column; gap: 8px; padding: 4px 10px 10px; }
+.agenda-now {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px 12px 15px; border-radius: 12px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.agenda-now::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, var(--cal), transparent 75%); opacity: 0.18;
+}
+.agenda-now::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cal); }
+.agenda-now > * { position: relative; }
+.agenda-now-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.agenda-now-cal { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agenda-now-cal::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--cal); }
+.agenda-now-badge {
+  flex: none; padding: 2px 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14); color: var(--text);
+  font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums;
+}
+.agenda-now-badge.overdue { background: rgba(255, 143, 128, 0.22); color: var(--danger); }
+.agenda-now-title { font-size: 18px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.agenda-now-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.agenda-now-meta span { display: flex; align-items: flex-start; gap: 6px; }
+.agenda-now-meta svg { flex: none; margin-top: 1px; color: var(--muted); }
+.agenda-now-meta .overdue, .agenda-now-meta .overdue svg { color: var(--danger); }
+.agenda-now-location { color: var(--muted); }
+/* Task already done: struck through and faded, kept so the day's list stays complete. */
+.agenda-now.done { opacity: 0.6; }
+.agenda-now.done .agenda-now-title, .agenda-day li.done .agenda-summary { text-decoration: line-through; }
+.agenda-day li.done { color: var(--muted); }
+/* Notes of the event: up to 6 lines, line breaks kept. */
+.agenda-now-desc {
+  margin: 2px 0 0; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 12px; line-height: 1.45; color: var(--muted); white-space: pre-line; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
+}
 .agenda-idle { margin: 0; padding: 0 16px 12px; font-size: 13px; color: var(--muted); }
 .agenda-days {
   display: flex; flex-direction: column; gap: 10px;
