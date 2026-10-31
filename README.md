@@ -9,6 +9,7 @@ Construit avec React, Three.js ([react-three-fiber](https://github.com/pmndrs/re
 - **Lumières par pièce** : cliquer sur une fenêtre ou sur la liste pour allumer/éteindre, bouton « Tout éteindre ».
 - **Home Assistant** : les pièces liées à une entité reflètent son état en direct (y compris les changements faits depuis Google Home) et la contrôlent via WebSocket.
 - **Agenda** : les événements Google Agenda et les tâches Google Tasks avec une échéance (via Home Assistant) dans la carte en haut à gauche. Les tâches en retard restent sur aujourd'hui. Les calendriers et les listes de tâches se règlent dans [src/data/calendars.js](src/data/calendars.js).
+- **Horloge** : l'heure et la date en tête de la carte météo, masquables dans l'engrenage (Affichage → Horloge).
 - **Mode démo** : sans configuration, les lumières sont simulées localement.
 - **Ambiance** : jour / nuit, quatre saisons (la saison actuelle par défaut).
 - **Météo** : conditions actuelles à Montréal via [Open-Meteo](https://open-meteo.com/) (gratuit, sans clé), rafraîchies toutes les 15 min, ou préréglage manuel (pluie, orage, neige, tempête, brouillard, vent…). Nuages, précipitations, éclairs et vent sont animés.

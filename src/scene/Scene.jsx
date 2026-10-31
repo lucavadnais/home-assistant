@@ -12,6 +12,7 @@ import Lightning from './Lightning'
 import { WEATHERS, windStrength } from '../weather/weather'
 import { SEASONS } from './seasons'
 import Sky from './Sky'
+import Stars from './Stars'
 import IdleDrift from './IdleDrift'
 import Traffic from './Traffic'
 import { useNeighborLights } from './neighborLights'
@@ -159,6 +160,8 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
         {lite && <StaticShadows />}
         <color attach="background" args={[l.background]} />
         {day && <Sky top={sky[0]} horizon={sky[1]} />}
+        {/* Stars only on clear nights: no precipitation, fog or overcast sky */}
+        {!day && !weather.precipitation && !weather.fog && weather.clouds <= 5 && <Stars density={particles} />}
         {weather.fog && <fog attach="fog" args={[day ? '#d3d9df' : '#1c2433', 35, 75]} />}
         {/* Clear nights stay cloudless; overcast nights get dark clouds */}
         {(day || weather.clouds > 3) && (

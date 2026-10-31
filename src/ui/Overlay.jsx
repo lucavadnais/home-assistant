@@ -39,7 +39,7 @@ export default function Overlay({
   season, seasonChoice, onSeasonChoiceChange,
   weatherChoice, onWeatherChoiceChange, weather, liveWeather, weatherError,
   haStatus, onHaRetry, showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange,
-  lite, onLiteChange,
+  lite, onLiteChange, showClock, onShowClockChange,
   calendarEvents, calendarStatus, calendarRefreshing, onCalendarRefresh,
 }) {
   const lit = rooms.filter((r) => r.on).length
@@ -54,8 +54,8 @@ export default function Overlay({
     try { localStorage.setItem('roomsOpen', String(open)) } catch { /* not persisted */ }
   }
 
-  // TV / computer: agenda top-left, gear bottom-left, weather atop the right column.
-  // Phone: gear and weather share the top row; the agenda goes at the bottom, above the devices.
+  // TV / computer: agenda top-left, gear bottom-left, clock and weather atop the right column.
+  // Phone: gear and the clock and weather card share the top row; the agenda goes at the bottom, above the devices.
   const phone = useMediaQuery(PHONE)
 
   const agenda = calendarStatus !== 'idle' && (
@@ -74,6 +74,8 @@ export default function Overlay({
       onViewShiftChange={onViewShiftChange}
       lite={lite}
       onLiteChange={onLiteChange}
+      showClock={showClock}
+      onShowClockChange={onShowClockChange}
     />
   )
   // The render settings flyout is positioned against the weather card, wherever it sits.
@@ -84,6 +86,7 @@ export default function Overlay({
         error={weatherError}
         expanded={settingsOpen}
         onExpandedChange={setSettingsOpen}
+        showClock={showClock}
       />
       {settingsOpen && (
         <div className="render-flyout">

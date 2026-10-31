@@ -185,7 +185,7 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
 /* Render settings open in a panel to the left of the weather card, aligned with its top. */
 .render-flyout {
   position: absolute; top: 0; right: calc(100% + 10px); z-index: 10;
-  width: min(340px, calc(100vw - 290px)); padding: 14px 16px; border-radius: 18px;
+  width: min(340px, calc(100vw - 320px)); padding: 14px 16px; border-radius: 18px;
 }
 .render-settings { display: flex; flex-direction: column; gap: 12px; }
 .render-summary { display: flex; align-items: center; gap: 8px; }
@@ -216,7 +216,7 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
 .render-options button.active { background: rgba(255, 184, 92, 0.24); border-color: rgba(255, 184, 92, 0.55); color: var(--warm); }
 
 .sidebar {
-  position: absolute; top: 16px; right: 16px; width: 230px;
+  position: absolute; top: 16px; right: 16px; width: 260px;
   max-height: calc(100% - 32px);
   display: flex; flex-direction: column; gap: 8px;
 }
@@ -284,7 +284,18 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
   color: inherit; font: inherit; font-size: 12px;
 }
 .status-card-retry:hover { background: rgba(255, 255, 255, 0.18); }
-.weather-main { display: flex; align-items: center; gap: 10px; }
+/* Head of the weather card: time and date on the left, big, then the current weather, small. */
+.weather-top { display: flex; align-items: center; gap: 20px; }
+.clock { flex: none; display: flex; flex-direction: column; }
+.clock-time { font-size: 34px; font-weight: 600; line-height: 1.05; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.clock-date { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.weather-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.weather-main > div { min-width: 0; }
+.weather-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Beside the clock: a smaller icon and temperature so both fit. */
+.with-clock .weather-main { gap: 6px; }
+.with-clock .weather-icon { width: 34px; height: 34px; }
+.with-clock .weather-temp { font-size: 22px; }
 .weather-icon { width: 48px; height: 48px; flex: none; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); }
 .weather-temp { display: block; font-size: 26px; font-weight: 600; line-height: 1.1; }
 .weather-label { font-size: 12px; color: var(--muted); }

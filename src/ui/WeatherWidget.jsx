@@ -1,4 +1,5 @@
 import { LOCATION, WEATHERS } from '../weather/weather'
+import Clock from './Clock'
 
 // Line icons drawn on a 48×48 grid with currentColor, so they follow the widget's colours.
 const Sun = () => (
@@ -47,10 +48,10 @@ function WeatherIcon({ weather, isDay }) {
   )
 }
 
-// Current outdoor conditions from the live feed, always the real weather (even when the
-// scene is forced to another preset). The arrow on the left opens the render settings panel
-// beside the card.
-export default function WeatherWidget({ live, error, expanded, onExpandedChange }) {
+// Time and date (unless hidden in the display settings), then the current outdoor conditions from
+// the live feed, always the real weather (even when the scene is forced to another preset).
+// The arrow on the left opens the render settings panel beside the card.
+export default function WeatherWidget({ live, error, expanded, onExpandedChange, showClock }) {
   return (
     <section className="weather-widget" aria-label={`Météo à ${LOCATION.name}`}>
       <div className="weather-body">
@@ -65,8 +66,9 @@ export default function WeatherWidget({ live, error, expanded, onExpandedChange 
             <path d="M15 6l-6 6 6 6" />
           </svg>        </button>
         <div className="weather-info">
-          {live ? (
-            <>
+          <div className={`weather-top ${showClock ? 'with-clock' : ''}`}>
+            {showClock && <Clock />}
+            {live ? (
               <div className="weather-main">
                 <WeatherIcon weather={live.weather} isDay={live.isDay} />
                 <div>
@@ -74,17 +76,22 @@ export default function WeatherWidget({ live, error, expanded, onExpandedChange 
                   <span className="weather-label">{WEATHERS[live.weather].label}</span>
                 </div>
               </div>
-              <dl className="weather-details">
-                <div><dt>Ressenti</dt><dd>{live.feelsLike}°</dd></div>
-                <div><dt>Max / min</dt><dd>{live.high}° / {live.low}°</dd></div>
-                <div><dt>Vent</dt><dd>{live.wind} km/h</dd></div>
-                <div><dt>Humidité</dt><dd>{live.humidity} %</dd></div>
-              </dl>            </>
-          ) : (
-            <div className="weather-main">
-              <strong className="weather-temp">--°</strong>
-              <span className="weather-label">{error ? 'Météo indisponible' : 'Chargement…'}</span>
-            </div>
+            ) : (
+              <div className="weather-main">
+                <div>
+                  <strong className="weather-temp">--°</strong>
+                  <span className="weather-label">{error ? 'Météo indisponible' : 'Chargement…'}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          {live && (
+            <dl className="weather-details">
+              <div><dt>Ressenti</dt><dd>{live.feelsLike}°</dd></div>
+              <div><dt>Max / min</dt><dd>{live.high}° / {live.low}°</dd></div>
+              <div><dt>Vent</dt><dd>{live.wind} km/h</dd></div>
+              <div><dt>Humidité</dt><dd>{live.humidity} %</dd></div>
+            </dl>
           )}
         </div>
       </div>

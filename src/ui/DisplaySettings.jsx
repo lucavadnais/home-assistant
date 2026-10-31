@@ -5,8 +5,10 @@ import { Group } from './RenderSettings'
 const MAX_SHIFT = 0.35
 
 // Gear button, top-left, opening the display options: neighbouring buildings shown or not,
-// where the house sits on screen (to keep it clear of the side column), and lite mode.
-export default function DisplaySettings({ showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange, lite, onLiteChange }) {
+// where the house sits on screen (to keep it clear of the side column), the clock, and lite mode.
+export default function DisplaySettings({
+  showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange, lite, onLiteChange, showClock, onShowClockChange,
+}) {
   const [open, setOpen] = useState(false)
   return (
     <div className="display-settings">
@@ -49,6 +51,15 @@ export default function DisplaySettings({ showNeighbors, onShowNeighborsChange, 
               <button onClick={() => onViewShiftChange(0)} disabled={viewShift === 0}>Centrer</button>
             </div>
           </fieldset>
+          <Group
+            title="Horloge"
+            value={showClock}
+            onChange={onShowClockChange}
+            options={[
+              { value: true, label: 'Afficher' },
+              { value: false, label: 'Masquer' },
+            ]}
+          />
           <Group
             title="Mode Lite (TV, appareils moins performant)"
             value={lite}

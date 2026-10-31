@@ -33,6 +33,8 @@ export default function App() {
   useEffect(() => store('viewShift', viewShift), [viewShift])
   const [lite, setLite] = useState(initialLite)
   useEffect(() => store('lite', lite), [lite])
+  const [showClock, setShowClock] = useState(() => stored('showClock', 'true') === 'true')
+  useEffect(() => store('showClock', showClock), [showClock])
   // 'auto' follows the calendar; otherwise one of SEASONS' ids
   const [seasonChoice, setSeasonChoice] = useState('auto')
   const now = useNow()
@@ -131,6 +133,8 @@ export default function App() {
         onViewShiftChange={setViewShift}
         lite={lite}
         onLiteChange={setLite}
+        showClock={showClock}
+        onShowClockChange={setShowClock}
       />
     </div>
   )
