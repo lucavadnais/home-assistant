@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Scene from './scene/Scene'
 import Overlay from './ui/Overlay'
-import { ROOMS } from './data/rooms'
+import { ROOMS, TREES } from './data/rooms'
+import { controllableDevices } from './ha/devices'
 import { currentSeason, seasonDate } from './scene/seasons'
 import useLiveWeather from './weather/useLiveWeather'
 import { isDaytime, minutesOf, sunPosition, sunTimes, useNow } from './weather/sun'
@@ -64,35 +65,59 @@ export default function App() {
 
   const ha = useHomeAssistant()
   const calendar = useCalendar(ha)
-  // Every room mirrors its Home Assistant entity, so the model always shows the real state.
-  // Until Home Assistant answers, or if the entity is missing, the room shows as offline.
-  const rooms = useMemo(
+  // Lights and sockets come straight from Home Assistant, so the model always shows the real state.
+  // While disconnected they stay listed but show as offline.
+  const devices = useMemo(() => {
+    const list = controllableDevices(ha.registry, ha.entities, TREES)
+    return ha.status === 'connected' ? list : list.map((d) => ({ ...d, on: false, offline: true }))
+  }, [ha.status, ha.registry, ha.entities])
+
+  const toggleDevice = useCallback(
+    (id) => {
+      const device = devices.find((d) => d.id === id)
+      if (!device.offline) ha.toggle(device.entity)
+    },
+    [devices, ha],
+  )
+
+  // One window per room, holding every device of its Home Assistant area.
+  const windows = useMemo(
     () =>
       ROOMS.map((r) => {
-        const entity = ha.status === 'connected' ? ha.entities[r.entity] : null
-        return { ...r, on: entity?.state === 'on', offline: !entity || entity.state === 'unavailable' }
+        const inside = devices.filter((d) => d.area === r.area)
+        return {
+          ...r,
+          id: r.area,
+          // A tree alone doesn't light the room: the glass only glows for the other devices.
+          on: inside.some((d) => d.on && !d.tree),
+          offline: inside.every((d) => d.offline),
+          tree: inside.some((d) => d.tree && d.on),
+        }
       }),
-    [ha.status, ha.entities],
+    [devices],
   )
 
-  const toggleRoom = useCallback(
-    (id) => {
-      const room = rooms.find((r) => r.id === id)
-      if (!room.offline) ha.toggle(room.entity)
+  // Any device on → switch the whole window off; otherwise switch it all on, so they stay in sync.
+  const toggleWindow = useCallback(
+    (area) => {
+      const inside = devices.filter((d) => d.area === area && !d.offline)
+      const entities = inside.map((d) => d.entity)
+      if (inside.some((d) => d.on)) ha.turnOff(entities)
+      else ha.turnOn(entities)
     },
-    [rooms, ha],
+    [devices, ha],
   )
 
-  // Only rooms Home Assistant reports as on are `on`, so this never targets an offline light.
+  // Only devices Home Assistant reports as on are `on`, so this never targets an offline light.
   const allOff = useCallback(() => {
-    ha.turnOff(rooms.filter((r) => r.on).map((r) => r.entity))
-  }, [rooms, ha])
+    ha.turnOff(devices.filter((d) => d.on).map((d) => d.entity))
+  }, [devices, ha])
 
   return (
     <div className={lite ? 'app lite' : 'app'}>
       <Scene
-        rooms={rooms}
-        onToggle={toggleRoom}
+        rooms={windows}
+        onToggle={toggleWindow}
         mode={mode}
         sun={sun}
         hour={modeChoice === 'day' ? simMinutes / 60 : undefined}
@@ -104,8 +129,8 @@ export default function App() {
         lite={lite}
       />
       <Overlay
-        rooms={rooms}
-        onToggle={toggleRoom}
+        rooms={devices}
+        onToggle={toggleDevice}
         onAllOff={allOff}
         mode={mode}
         modeChoice={modeChoice}

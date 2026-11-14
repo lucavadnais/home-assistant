@@ -17,6 +17,8 @@ export const HA_ENABLED = Boolean(HA_URL && HA_TOKEN)
 export default function useHomeAssistant() {
   const [status, setStatus] = useState(HA_ENABLED ? 'connecting' : 'demo')
   const [entities, setEntities] = useState({})
+  // Entity and device registries: which area each entity sits in. null until first loaded.
+  const [registry, setRegistry] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const connection = useRef(null)
 
@@ -24,22 +26,33 @@ export default function useHomeAssistant() {
     if (!HA_ENABLED) return
     let cancelled = false
     let unsubscribe
+    let registryEvents = []
 
     createConnection({ auth: createLongLivedTokenAuth(HA_URL, HA_TOKEN) })
       .then((conn) => {
         if (cancelled) return conn.close()
         connection.current = conn
         setStatus('connected')
-        // The library reconnects on its own; mirror that in the status.
+        const loadRegistry = () =>
+          Promise.all([
+            conn.sendMessagePromise({ type: 'config/entity_registry/list' }),
+            conn.sendMessagePromise({ type: 'config/device_registry/list' }),
+          ]).then(([entities, devices]) => { if (!cancelled) setRegistry({ entities, devices }) })
+        loadRegistry()
+        // The library reconnects on its own; mirror that in the status. Areas may change meanwhile.
         conn.addEventListener('disconnected', () => setStatus('disconnected'))
-        conn.addEventListener('ready', () => setStatus('connected'))
+        conn.addEventListener('ready', () => { setStatus('connected'); loadRegistry() })
         unsubscribe = subscribeEntities(conn, setEntities)
+        registryEvents = ['entity_registry_updated', 'device_registry_updated'].map((type) =>
+          conn.subscribeEvents(loadRegistry, type),
+        )
       })
       .catch((err) => setStatus(err === ERR_INVALID_AUTH ? 'auth-error' : 'error'))
 
     return () => {
       cancelled = true
       unsubscribe?.()
+      registryEvents.forEach((p) => p.then((unsub) => unsub()).catch(() => {}))
       connection.current?.close()
       connection.current = null
     }
@@ -53,6 +66,11 @@ export default function useHomeAssistant() {
   // homeassistant.* services work for any domain (light, switch, …), so Tuya plugs and bulbs alike.
   const toggle = useCallback((entityId) => {
     if (connection.current) callService(connection.current, 'homeassistant', 'toggle', undefined, { entity_id: entityId })
+  }, [])
+
+  const turnOn = useCallback((entityIds) => {
+    if (connection.current && entityIds.length)
+      callService(connection.current, 'homeassistant', 'turn_on', undefined, { entity_id: entityIds })
   }, [])
 
   const turnOff = useCallback((entityIds) => {
@@ -83,5 +101,5 @@ export default function useHomeAssistant() {
     return response
   }, [])
 
-  return { status, entities, toggle, turnOff, retry, getEvents, getTasks }
+  return { status, entities, registry, toggle, turnOn, turnOff, retry, getEvents, getTasks }
 }

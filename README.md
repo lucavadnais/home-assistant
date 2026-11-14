@@ -43,7 +43,7 @@ Puis ouvrir l'URL affichée par Vite (par défaut http://localhost:5173).
    VITE_HA_TOKEN=<votre jeton>
    ```
 
-3. Dans [src/data/rooms.js](src/data/rooms.js), renseigner le champ `entity` de chaque pièce (par ex. `'light.salon'`). Les pièces laissées à `null` restent en bascule locale.
+3. Dans Home Assistant, ranger chaque lumière et prise dans sa pièce (« area »). L'app liste les entités `light.*` et les `switch.*` de classe `outlet` qui sont dans une pièce ; les autres sont ignorées. Chaque fenêtre de [src/data/rooms.js](src/data/rooms.js) est liée à une pièce par son `area` (par ex. `'living_room'`). Un clic sur la fenêtre allume ou éteint tous les appareils de la pièce.
 4. Relancer `npm run dev`.
 
 Le statut de connexion s'affiche dans la barre du haut (Mode démo, Connecté, Reconnexion…, Jeton refusé, Injoignable). Les services `homeassistant.toggle` / `turn_off` sont utilisés, donc n'importe quel domaine fonctionne (`light`, `switch`, prises Tuya, etc.).
@@ -101,8 +101,9 @@ Pour servir l'app en continu sur le réseau local, depuis le Pi qui fait tourner
 ```
 src/
 ├── App.jsx                  État global : pièces, mode, saison, météo, Home Assistant
-├── data/rooms.js            Pièces, position des fenêtres et entités liées
+├── data/rooms.js            Position des fenêtres et pièce Home Assistant liée
 ├── ha/useHomeAssistant.js   Connexion WebSocket et commandes Home Assistant
+├── ha/devices.js            Lumières et prises de Home Assistant, avec leur pièce
 ├── weather/
 │   ├── weather.js           Préréglages météo, codes WMO, appel Open-Meteo
 │   └── useLiveWeather.js    Rafraîchissement de la météo en direct
@@ -113,6 +114,6 @@ src/
 
 ## Personnalisation
 
-- **Pièces et fenêtres** : [src/data/rooms.js](src/data/rooms.js) — nom, position, orientation (`FRONT` / `BACK`), taille, entité.
+- **Pièces et fenêtres** : [src/data/rooms.js](src/data/rooms.js) — pièce Home Assistant (`area`), position, orientation (`FRONT` / `BACK`), taille ; `TREES` pour les sapins qui scintillent.
 - **Lieu de la météo** : `LOCATION` dans [src/weather/weather.js](src/weather/weather.js).
 - **Préréglages météo** : `WEATHERS` dans le même fichier (couleurs du ciel, nuages, soleil, vent).

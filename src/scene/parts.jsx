@@ -175,6 +175,110 @@ export function StaticWindow({ position, size, rotationY = 0, frame = '#2a2f36',
   )
 }
 
+// Keeps the part of polygon `pts` where side * (x - edge) >= 0 (one Sutherland–Hodgman pass).
+function clipX(pts, edge, side) {
+  const inside = ([px]) => side * (px - edge) >= 0
+  const out = []
+  pts.forEach((p, i) => {
+    const q = pts[(i + 1) % pts.length]
+    if (inside(p)) out.push(p)
+    if (inside(p) !== inside(q)) {
+      const t = (edge - p[0]) / (q[0] - p[0])
+      out.push([edge, p[1] + t * (q[1] - p[1])])
+    }
+  })
+  return out
+}
+
+const TREE_COLORS =['#ff3b3b', '#ffd23b', '#3bff7a', '#3bb8ff', '#ff5cf0', '#fff4d6']
+
+// A Christmas tree seen through the glass: dark silhouette dotted with twinkling bulbs.
+function ChristmasTree({ w, h }) {
+  const bulbs = useRef([])
+  const glow = useContext(WindowGlow)
+  const height = Math.min(h * 0.82, w * 1.4)
+  const base = -h / 2 + 0.07
+  const x = -w * 0.2
+  const spread = 0.42
+  // Glass edges in the tree's own coordinates; whatever sticks out is cut off.
+  const left = -w / 2 - x
+  const right = w / 2 - x
+
+  // Three stacked tiers read as a fir rather than a plain triangle.
+  const shape = useMemo(() => {
+    const half = height * spread
+    const tiers = [[0.33, 0.78], [0.62, 0.55]]
+    const pts = [[-half, 0], [half, 0]]
+    tiers.forEach(([y, k]) => pts.push([half * k * 0.6, y * height], [half * k, y * height]))
+    pts.push([0, height])
+    tiers.slice().reverse().forEach(([y, k]) => pts.push([-half * k, y * height], [-half * k * 0.6, y * height]))
+    const clipped = clipX(clipX(pts, left, 1), right, -1)
+    return new THREE.Shape(clipped.map(([px, py]) => new THREE.Vector2(px, py)))
+  }, [height, left, right])
+
+  // Bulbs scattered inside the triangle, each with its own blink speed and phase.
+  const spots = useMemo(() => {
+    const out = []
+    const half = height * spread
+    // Half-width of the tiered outline at height fraction t
+    const halfAt = (t) =>
+      t < 0.33 ? half * (1 - (t / 0.33) * (1 - 0.78 * 0.6))
+      : t < 0.62 ? half * 0.78 * (1 - ((t - 0.33) / 0.29) * (1 - (0.55 * 0.6) / 0.78))
+      : half * 0.55 * (1 - (t - 0.62) / 0.38)
+    // Random spots kept at least `gap` apart: even coverage without a visible pattern
+    const gap = 0.085
+    for (let i = 0; i < 600; i++) {
+      const y = 0.04 + random(i * 2 + 101) * height * 0.88
+      const span = halfAt(y / height) - 0.03
+      const bx = (random(i * 2 + 102) * 2 - 1) * span
+      if (span <= 0 || bx < left + 0.025 || bx > right - 0.025) continue
+      if (out.some(({ pos: [ox, oy] }) => Math.hypot(bx - ox, y - oy) < gap)) continue
+      out.push({ pos: [bx, y] })
+    }
+    out.forEach((s, i) => {
+      Object.assign(s, {
+        color: TREE_COLORS[Math.floor(random(i * 11 + 7) * TREE_COLORS.length)],
+        speed: 1.5 + random(i * 3 + 3) * 3,
+        phase: random(i * 7 + 5) * Math.PI * 2,
+      })
+    })
+    return out
+  }, [height, left, right])
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    const level = Math.max(glow, 0.5)
+    bulbs.current.forEach((m, i) => {
+      const s = spots[i]
+      const blink = 0.5 + 0.5 * Math.sin(t * s.speed + s.phase)
+      m.material.opacity = (0.25 + 0.75 * blink * blink) * level
+    })
+  })
+
+  return (
+    <group position={[x, base, 0.003]}>
+      <mesh>
+        <shapeGeometry args={[shape]} />
+        <meshBasicMaterial color="#0b3d1c" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -0.035, 0]}>
+        <planeGeometry args={[0.08, 0.07]} />
+        <meshBasicMaterial color="#3a2414" toneMapped={false} />
+      </mesh>
+      {spots.map((s, i) => (
+        <mesh key={i} ref={(m) => { bulbs.current[i] = m }} position={[s.pos[0], s.pos[1], 0.001]}>
+          <circleGeometry args={[0.022, 10]} />
+          <meshBasicMaterial color={s.color} transparent toneMapped={false} />
+        </mesh>
+      ))}
+      <mesh position={[0, height, 0.001]}>
+        <circleGeometry args={[0.04, 5]} />
+        <meshBasicMaterial color="#ffe27a" toneMapped={false} />
+      </mesh>
+    </group>
+  )
+}
+
 // A room's window: glows and lights the ground in front when the room is on.
 export function RoomWindow({ room, onToggle }) {
   const glass = useRef()
@@ -191,7 +295,8 @@ export function RoomWindow({ room, onToggle }) {
 
   useFrame((_, dt) => {
     const k = 1 - Math.exp(-dt * 8)
-    const target = room.on ? 4 * glow : hovered ? 0.6 : 0
+    // Dimmer glass behind a tree so its silhouette isn't washed out by the glow.
+    const target = room.on ? (room.tree ? 1.6 : 4) * glow : hovered ? 0.6 : 0
     glass.current.emissiveIntensity = THREE.MathUtils.lerp(glass.current.emissiveIntensity, target, k)
     light.current.intensity = THREE.MathUtils.lerp(light.current.intensity, room.on ? 10 * glow : 0, k)
   })
@@ -219,6 +324,7 @@ export function RoomWindow({ room, onToggle }) {
             toneMapped={false}
           />
         </mesh>
+        {room.tree && <ChristmasTree w={w} h={h} />}
       </group>
       <pointLight ref={light} position={lightPos} color={WARM} intensity={0} distance={6} decay={2} />
     </group>
