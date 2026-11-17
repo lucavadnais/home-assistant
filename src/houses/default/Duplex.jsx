@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { Ghost, Solid, Wall, Railing, StaticWindow } from './parts'
-import { brickTexture, slatTexture } from './textures'
-import { SNOW } from './seasons'
+import { Ghost, Solid, Wall, Railing, StaticWindow } from '../../scene/parts'
+import { brickTexture, slatTexture } from '../../scene/textures'
+import { SNOW } from '../../scene/seasons'
 
 // Street-front brick duplex. Main block x -9..0, z -4..8 (facade at z = 8),
 // rear extension z -10..-4. Porch with two stacked balconies along the facade.

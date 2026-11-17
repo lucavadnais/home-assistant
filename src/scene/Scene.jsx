@@ -1,20 +1,15 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, OrthographicCamera } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
-import RearHouse from './RearHouse'
-import Duplex, { DuplexGhost } from './Duplex'
-import RightNeighbor, { RightNeighborGhost } from './RightNeighbor'
-import Surroundings from './Surroundings'
-import Precipitation, { BlowingLeaves, Gusts } from './Precipitation'
+import Precipitation, { BlowingLeaves, Gusts, WeatherArea } from './Precipitation'
 import Lightning from './Lightning'
 import { WEATHERS, windStrength } from '../weather/weather'
 import { SEASONS } from './seasons'
 import Sky from './Sky'
 import Stars from './Stars'
 import IdleDrift from './IdleDrift'
-import Traffic from './Traffic'
 import { useNeighborLights } from './neighborLights'
 import Clouds from './Clouds'
 import { WindowGlow } from './parts'
@@ -60,24 +55,26 @@ function dayLighting(sun, sky) {
 const DAY_WINDOW_GLOW = 0.35
 
 // Starting view: from the street, almost face-on and low (8° up), the whole plot filling the
-// screen. The camera is orthographic, so its distance only has to clear the scene.
-const TARGET = [-0.5, 3, -1]
-const VIEW_ELEVATION = THREE.MathUtils.degToRad(8)
+// screen (the house's `framing`, see houses/index.js). The camera is orthographic, so its
+// distance only has to clear the scene.
+// `?view=` in the URL picks a fixed view instead, without the idle sway: front, right, back,
+// left (each façade face-on), corner or top. Used to compare the model with photos of the house.
+const VIEWS = {
+  front: [0, 8], right: [90, 8], back: [180, 8], left: [270, 8], corner: [35, 22], top: [0, 80],
+}
+const FIXED_VIEW = VIEWS[new URLSearchParams(window.location.search).get('view')] ?? null
+const [VIEW_AZIMUTH, VIEW_ELEVATION] = (FIXED_VIEW ?? VIEWS.front).map(THREE.MathUtils.degToRad)
 // Lowest the camera can orbit down to, above the horizon
 const MIN_ELEVATION = THREE.MathUtils.degToRad(5)
-const CAMERA_POSITION = [
-  TARGET[0],
-  TARGET[1] + 50 * Math.sin(VIEW_ELEVATION),
-  TARGET[2] + 50 * Math.cos(VIEW_ELEVATION),
+const cameraPosition = ([x, y, z]) => [
+  x + 50 * Math.cos(VIEW_ELEVATION) * Math.sin(VIEW_AZIMUTH),
+  y + 50 * Math.sin(VIEW_ELEVATION),
+  z + 50 * Math.cos(VIEW_ELEVATION) * Math.cos(VIEW_AZIMUTH),
 ]
-const MIN_ZOOM = 10
 const MAX_ZOOM = 70
-// Size of the plot as seen from the starting view (world units), to fit it on screen
-const VIEW_WIDTH = 28
-const VIEW_HEIGHT = 17
-const fitZoom = () => THREE.MathUtils.clamp(
-  Math.min((0.92 * window.innerWidth) / VIEW_WIDTH, (0.85 * window.innerHeight) / VIEW_HEIGHT),
-  MIN_ZOOM, MAX_ZOOM,
+const fitZoom = ({ width, height, minZoom }) => THREE.MathUtils.clamp(
+  Math.min((0.92 * window.innerWidth) / width, (0.85 * window.innerHeight) / height),
+  minZoom, MAX_ZOOM,
 )
 
 // Lite mode, for weak GPUs (TV boxes): native resolution, no post-processing (the vignette is
@@ -138,7 +135,12 @@ function ViewShift({ shift }) {
   return null
 }
 
-export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors, viewShift, season: seasonId, weather: weatherId, wind: windKmh, lite }) {
+export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors, viewShift, season: seasonId, weather: weatherId, wind: windKmh, lite, house }) {
+  const { Model, framing } = house
+  // A house made before `lot` existed falls back on 6538's plot
+  const lot = house.lot ?? { x: [-14, 13], z: [-18.5, 21.5] }
+  // The sun's shadows are computed over the whole lot (at least ±26 m, what 6538 needs)
+  const shadowReach = Math.max(26, ...lot.x.map(Math.abs), ...lot.z.map(Math.abs))
   const season = SEASONS[seasonId]
   const weather = WEATHERS[weatherId]
   const day = mode === 'day'
@@ -146,7 +148,9 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
   const sky = l.sky
   const wind = windStrength(windKmh)
   const neighborLit = useNeighborLights(mode, hour)
-  const [zoom] = useState(fitZoom)
+  // Fitted once, not on resize: the viewer's own zoom is kept meanwhile
+  const zoom = useMemo(() => fitZoom(framing), [framing])
+  const position = useMemo(() => cameraPosition(framing.target), [framing])
   const windowGlow = day ? THREE.MathUtils.lerp(1, DAY_WINDOW_GLOW, THREE.MathUtils.smoothstep(sun.elevation, 0, 10)) : 1
 
   const particles = lite ? LITE_PARTICLES : 1
@@ -167,17 +171,17 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
         {(day || weather.clouds > 3) && (
           <Clouds count={weather.clouds} color={day ? weather.cloudColor : '#3a4354'} glow={day ? 0.3 : 0.05} speed={1 + 8 * wind} />
         )}
-        <OrthographicCamera makeDefault position={CAMERA_POSITION} zoom={zoom} near={-100} far={300} />
+        <OrthographicCamera makeDefault position={position} zoom={zoom} near={-100} far={300} />
         <OrbitControls
-          target={TARGET}
+          target={framing.target}
           enablePan={false}
-          minZoom={MIN_ZOOM}
+          minZoom={framing.minZoom}
           maxZoom={MAX_ZOOM}
           maxPolarAngle={Math.PI / 2 - MIN_ELEVATION}
           enableDamping
           makeDefault
         />
-        <IdleDrift />
+        {!FIXED_VIEW && <IdleDrift />}
         <ViewShift shift={viewShift} />
 
         <ambientLight intensity={l.ambient} />
@@ -189,23 +193,31 @@ export default function Scene({ rooms, onToggle, mode, sun, hour, showNeighbors,
           castShadow
           shadow-mapSize={lite ? [1024, 1024] : [2048, 2048]}
           shadow-bias={-0.0004}
-          shadow-camera-left={-26}
-          shadow-camera-right={26}
-          shadow-camera-top={26}
-          shadow-camera-bottom={-26}
+          shadow-camera-left={-shadowReach}
+          shadow-camera-right={shadowReach}
+          shadow-camera-top={shadowReach}
+          shadow-camera-bottom={-shadowReach}
         />
 
         <WindowGlow.Provider value={windowGlow}>
-          <Surroundings season={season} wind={wind} />
-          {showNeighbors ? <Duplex season={season} lit={neighborLit} /> : <DuplexGhost />}
-          {showNeighbors ? <RightNeighbor season={season} lit={neighborLit} /> : <RightNeighborGhost />}
-          <RearHouse rooms={rooms} onToggle={onToggle} season={season} />
+          <Model
+            rooms={rooms}
+            onToggle={onToggle}
+            season={season}
+            wind={wind}
+            day={day}
+            lite={lite}
+            showNeighbors={showNeighbors}
+            neighborLit={neighborLit}
+          />
         </WindowGlow.Provider>
-        <Precipitation key={weatherId} type={weather.precipitation} wind={wind} density={particles} />
-        {weather.lightning && <Lightning />}
-        <Traffic night={!day} snow={season.snow} movingShadows={!lite} />
-        <Gusts strength={wind} density={particles} />
-        {season.fallenLeaves && <BlowingLeaves colors={season.fallenLeaves} strength={wind} density={particles} />}
+        {/* Rain, snow and wind cover the whole lot, neighbours included */}
+        <WeatherArea.Provider value={lot}>
+          <Precipitation key={weatherId} type={weather.precipitation} wind={wind} density={particles} />
+          {weather.lightning && <Lightning />}
+          <Gusts strength={wind} density={particles} />
+          {season.fallenLeaves && <BlowingLeaves colors={season.fallenLeaves} strength={wind} density={particles} />}
+        </WeatherArea.Provider>
 
         {!lite && (
           <EffectComposer>

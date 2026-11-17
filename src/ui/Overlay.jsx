@@ -39,7 +39,7 @@ export default function Overlay({
   season, seasonChoice, onSeasonChoiceChange,
   weatherChoice, onWeatherChoiceChange, weather, liveWeather, weatherError,
   haStatus, onHaRetry, showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange,
-  lite, onLiteChange, showClock, onShowClockChange,
+  lite, onLiteChange, showClock, onShowClockChange, availableTypes, shownTypes, onShownTypesChange,
   calendarEvents, calendarStatus, calendarRefreshing, onCalendarRefresh,
 }) {
   const lit = rooms.filter((r) => r.on).length
@@ -76,6 +76,9 @@ export default function Overlay({
       onLiteChange={onLiteChange}
       showClock={showClock}
       onShowClockChange={onShowClockChange}
+      availableTypes={availableTypes}
+      shownTypes={shownTypes}
+      onShownTypesChange={onShownTypesChange}
     />
   )
   // The render settings flyout is positioned against the weather card, wherever it sits.

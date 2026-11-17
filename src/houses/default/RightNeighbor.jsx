@@ -1,6 +1,6 @@
-import { Ghost, Railing, Solid, StaticWindow, Wall, WindowPeople } from './parts'
-import { SILHOUETTES, brickTexture } from './textures'
-import { SNOW } from './seasons'
+import { Ghost, Railing, Solid, StaticWindow, Wall, WindowPeople } from '../../scene/parts'
+import { SILHOUETTES, brickTexture } from '../../scene/textures'
+import { SNOW } from '../../scene/seasons'
 
 // Right-hand neighbour: two-storey orange-brick duplex with a wide white eave, flat roof.
 // Main block x 3.4..12.6, z -6..8 (facade at z = 8), rear block x 6..12.6, z -10..-6.

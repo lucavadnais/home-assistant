@@ -1,3 +1,8 @@
 node_modules
 dist
 .env.local
+
+# Your own house (written by the /build-house Claude Code command) and its photos stay on your
+# machine. To deploy your house from git, remove the src/houses/custom/ line in your own clone.
+src/houses/custom/
+house-photos/

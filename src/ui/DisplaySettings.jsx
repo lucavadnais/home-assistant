@@ -1,14 +1,22 @@
 import { useState } from 'react'
 import { Group } from './RenderSettings'
+import { typeLabel } from '../ha/devices'
 
 // Furthest the house can slide, as a fraction of the screen width
 const MAX_SHIFT = 0.35
 
 // Gear button, top-left, opening the display options: neighbouring buildings shown or not,
-// where the house sits on screen (to keep it clear of the side column), the clock, and lite mode.
+// where the house sits on screen (to keep it clear of the side column), lite mode,
+// which types of Home Assistant device are shown (lights, sockets, speakers…), and how to get
+// one's own house in place of the author's.
 export default function DisplaySettings({
-  showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange, lite, onLiteChange, showClock, onShowClockChange,
+  showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange, lite, onLiteChange,
+  availableTypes, shownTypes, onShownTypesChange,
 }) {
+  const toggleType = (id) =>
+    onShownTypesChange(shownTypes.includes(id) ? shownTypes.filter((t) => t !== id) : [...shownTypes, id])
+  // The types Home Assistant has, plus any ticked one it hasn't (yet) so it can still be unticked
+  const offered = [...availableTypes, ...shownTypes.filter((t) => !availableTypes.includes(t))]
   const [open, setOpen] = useState(false)
   return (
     <div className="display-settings">
@@ -26,6 +34,20 @@ export default function DisplaySettings({
       </button>
       {open && (
         <div className="display-panel render-settings">
+          <section className="display-help">
+            <strong>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-5M12 8h.01" />
+              </svg>
+              Votre maison
+            </strong>
+            <p>
+              Pour modéliser votre maison à partir de photos : ouvrez le projet dans Claude Code
+              (app Claude, onglet Code), déposez les photos dans <code>house-photos/</code>,
+              puis lancez le skill <code>/build-house</code>.
+            </p>
+          </section>
           <strong className="display-title">Affichage</strong>
           <Group
             title="Autres bâtiments"
@@ -52,15 +74,6 @@ export default function DisplaySettings({
             </div>
           </fieldset>
           <Group
-            title="Horloge"
-            value={showClock}
-            onChange={onShowClockChange}
-            options={[
-              { value: true, label: 'Afficher' },
-              { value: false, label: 'Masquer' },
-            ]}
-          />
-          <Group
             title="Mode Lite (TV, appareils moins performant)"
             value={lite}
             onChange={onLiteChange}
@@ -69,6 +82,23 @@ export default function DisplaySettings({
               { value: false, label: 'Désactivé' },
             ]}
           />
+          {offered.length > 0 && (
+            <fieldset className="render-group">
+              <legend>Appareils affichés</legend>
+              <div className="render-options">
+                {offered.map((t) => (
+                  <button
+                    key={t}
+                    className={shownTypes.includes(t) ? 'active' : ''}
+                    onClick={() => toggleType(t)}
+                    aria-pressed={shownTypes.includes(t)}
+                  >
+                    {typeLabel(t)}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
         </div>
       )}
     </div>

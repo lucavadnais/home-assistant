@@ -172,6 +172,20 @@ button.chip:hover { background: var(--glass-hover); border-color: rgba(255, 255,
   width: 240px; padding: 14px 16px; border-radius: 18px;
 }
 .display-title { font-size: 13px; }
+/* How to get one's own house: an information card, lighter than the panel so a new user spots it,
+   but neutral so it doesn't read as a selected option (those are warm). */
+.display-help {
+  margin-bottom: 4px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12); border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+.display-help strong { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 12px; }
+.display-help p { margin: 0; font-size: 11px; line-height: 1.45; }
+.display-help code {
+  padding: 1px 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.12);
+  color: var(--text); font-size: 10.5px;
+}
+/* The panel scrolls rather than leaving a short screen. */
+.display-panel { max-height: calc(100vh - 110px); overflow-y: auto; }
 .view-shift { display: flex; align-items: center; gap: 10px; }
 .view-shift input { flex: 1; min-width: 0; accent-color: var(--warm); }
 .view-shift button {

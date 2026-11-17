@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { RoundedBox } from '@react-three/drei'
-import { Flat, Solid, Wall } from './parts'
-import { latticeTexture, numberTexture, slatTexture, woodTexture } from './textures'
-import { SNOW } from './seasons'
-import { FallenLeaves, Hydrangea, StreetTree, Sway } from './Plants'
+import { Flat, Solid, Wall } from '../../scene/parts'
+import { latticeTexture, numberTexture, slatTexture, woodTexture } from '../../scene/textures'
+import { SNOW } from '../../scene/seasons'
+import { FallenLeaves, Hydrangea, StreetTree, Sway } from '../../scene/Plants'
 
 // Plot x -14..13, z -18.5..21.5. Street along +z (parking lane + one-way lane), back lane along -z,
 // side alley along the west edge (x -13.6..-10.2) joining the two.

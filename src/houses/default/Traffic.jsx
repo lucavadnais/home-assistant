@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { between, hash, hourOf, random } from './chance'
-import { SNOW } from './seasons'
+import { between, hash, hourOf, random } from '../../scene/chance'
+import { SNOW } from '../../scene/seasons'
 
 // Street life: a few cars driving along the one-way street (+x) and two parking spots in
 // front of the houses that are taken or free depending on the time.

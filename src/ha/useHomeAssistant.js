@@ -5,6 +5,7 @@ import {
   createLongLivedTokenAuth,
   ERR_INVALID_AUTH,
   subscribeEntities,
+  subscribeServices,
 } from 'home-assistant-js-websocket'
 
 // Connection settings come from .env.local (see .env.example). Without them the app runs in demo mode.
@@ -19,6 +20,8 @@ export default function useHomeAssistant() {
   const [entities, setEntities] = useState({})
   // Entity and device registries: which area each entity sits in. null until first loaded.
   const [registry, setRegistry] = useState(null)
+  // Services by domain ({ light: { turn_on: …, … }, … }): tells which domains can be switched on/off
+  const [services, setServices] = useState(null)
   const [attempt, setAttempt] = useState(0)
   const connection = useRef(null)
 
@@ -26,6 +29,7 @@ export default function useHomeAssistant() {
     if (!HA_ENABLED) return
     let cancelled = false
     let unsubscribe
+    let unsubscribeServices
     let registryEvents = []
 
     createConnection({ auth: createLongLivedTokenAuth(HA_URL, HA_TOKEN) })
@@ -43,6 +47,7 @@ export default function useHomeAssistant() {
         conn.addEventListener('disconnected', () => setStatus('disconnected'))
         conn.addEventListener('ready', () => { setStatus('connected'); loadRegistry() })
         unsubscribe = subscribeEntities(conn, setEntities)
+        unsubscribeServices = subscribeServices(conn, setServices)
         registryEvents = ['entity_registry_updated', 'device_registry_updated'].map((type) =>
           conn.subscribeEvents(loadRegistry, type),
         )
@@ -52,6 +57,7 @@ export default function useHomeAssistant() {
     return () => {
       cancelled = true
       unsubscribe?.()
+      unsubscribeServices?.()
       registryEvents.forEach((p) => p.then((unsub) => unsub()).catch(() => {}))
       connection.current?.close()
       connection.current = null
@@ -101,5 +107,5 @@ export default function useHomeAssistant() {
     return response
   }, [])
 
-  return { status, entities, registry, toggle, turnOn, turnOff, retry, getEvents, getTasks }
+  return { status, entities, registry, services, toggle, turnOn, turnOff, retry, getEvents, getTasks }
 }

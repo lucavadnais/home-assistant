@@ -1,7 +1,7 @@
-import { Solid, Wall, Railing, RoomWindow, StaticWindow } from './parts'
-import { sidingTexture } from './textures'
-import { SNOW } from './seasons'
-import { WINDOWS } from '../data/rooms'
+import { Solid, Wall, Railing, RoomWindow, StaticWindow } from '../../scene/parts'
+import { sidingTexture } from '../../scene/textures'
+import { SNOW } from '../../scene/seasons'
+import { WINDOWS } from './rooms'
 
 // 6538: two-storey back-lot house in white vinyl siding, flat roof.
 // Footprint x 0..6, z -16..-10; front faces the courtyard (+z). Ground floor is raised 0.9 m.

@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Scene from './scene/Scene'
 import Overlay from './ui/Overlay'
-import { ROOMS, TREES } from './data/rooms'
-import { controllableDevices } from './ha/devices'
+import { HOUSE } from './houses'
+import { DEFAULT_TYPES, homeDevices } from './ha/devices'
 import { currentSeason, seasonDate } from './scene/seasons'
 import useLiveWeather from './weather/useLiveWeather'
 import { isDaytime, minutesOf, sunPosition, sunTimes, useNow } from './weather/sun'
 import { WEATHERS } from './weather/weather'
 import useHomeAssistant from './ha/useHomeAssistant'
 import useCalendar from './ha/useCalendar'
+
+// `?clean` in the URL hides every panel, leaving only the 3D scene (to screenshot the model)
+const CLEAN = new URLSearchParams(window.location.search).has('clean')
 
 // Display options are remembered in this browser (storage may be unavailable)
 const stored = (key, fallback) => {
@@ -36,6 +39,14 @@ export default function App() {
   useEffect(() => store('lite', lite), [lite])
   const [showClock, setShowClock] = useState(() => stored('showClock', 'true') === 'true')
   useEffect(() => store('showClock', showClock), [showClock])
+  // Types of device shown ('light', 'switch:outlet', …, see ha/devices.js), ticked in the display settings
+  const [shownTypes, setShownTypes] = useState(() => {
+    try {
+      const saved = JSON.parse(stored('shownDeviceTypes', 'null'))
+      return Array.isArray(saved) ? saved : DEFAULT_TYPES
+    } catch { return DEFAULT_TYPES }
+  })
+  useEffect(() => store('shownDeviceTypes', JSON.stringify(shownTypes)), [shownTypes])
   // 'auto' follows the calendar; otherwise one of SEASONS' ids
   const [seasonChoice, setSeasonChoice] = useState('auto')
   const now = useNow()
@@ -55,7 +66,10 @@ export default function App() {
   const sunDate = modeChoice === 'day'
     ? new Date(sunNow.getFullYear(), sunNow.getMonth(), sunNow.getDate(), 0, simMinutes)
     : sunNow
-  const sun = sunPosition(sunDate)
+  // The model's front faces the viewer (+z, south in the scene): turn the sun so it shines from
+  // where it really does, given which way the house's real front faces.
+  const realSun = sunPosition(sunDate)
+  const sun = { ...realSun, azimuth: realSun.azimuth + 180 - HOUSE.frontAzimuth }
   // 'auto' follows the live feed; otherwise one of WEATHERS' ids
   const [weatherChoice, setWeatherChoice] = useState('auto')
   const { live, error } = useLiveWeather()
@@ -65,12 +79,16 @@ export default function App() {
 
   const ha = useHomeAssistant()
   const calendar = useCalendar(ha)
-  // Lights and sockets come straight from Home Assistant, so the model always shows the real state.
+  // Devices come straight from Home Assistant, so the model always shows the real state; only the
+  // types ticked in the settings are kept (left out of the model, the list and "all off" alike).
   // While disconnected they stay listed but show as offline.
-  const devices = useMemo(() => {
-    const list = controllableDevices(ha.registry, ha.entities, TREES)
-    return ha.status === 'connected' ? list : list.map((d) => ({ ...d, on: false, offline: true }))
-  }, [ha.status, ha.registry, ha.entities])
+  const { devices, availableTypes } = useMemo(() => {
+    const { devices: list, available } = homeDevices(ha.registry, ha.entities, ha.services, shownTypes, HOUSE.trees)
+    return {
+      devices: ha.status === 'connected' ? list : list.map((d) => ({ ...d, on: false, offline: true })),
+      availableTypes: available,
+    }
+  }, [ha.status, ha.registry, ha.entities, ha.services, shownTypes])
 
   const toggleDevice = useCallback(
     (id) => {
@@ -80,16 +98,16 @@ export default function App() {
     [devices, ha],
   )
 
-  // One window per room, holding every device of its Home Assistant area.
+  // The house's windows tied to rooms, each holding every device of its Home Assistant area.
   const windows = useMemo(
     () =>
-      ROOMS.map((r) => {
+      HOUSE.rooms.map((r) => {
         const inside = devices.filter((d) => d.area === r.area)
         return {
           ...r,
-          id: r.area,
-          // A tree alone doesn't light the room: the glass only glows for the other devices.
-          on: inside.some((d) => d.on && !d.tree),
+          id: r.id ?? r.area,
+          // A tree, a speaker or a fan alone doesn't light the room: the glass only glows for the rest.
+          on: inside.some((d) => d.on && d.glows && !d.tree),
           offline: inside.every((d) => d.offline),
           tree: inside.some((d) => d.tree && d.on),
         }
@@ -99,13 +117,14 @@ export default function App() {
 
   // Any device on → switch the whole window off; otherwise switch it all on, so they stay in sync.
   const toggleWindow = useCallback(
-    (area) => {
+    (id) => {
+      const area = windows.find((w) => w.id === id)?.area
       const inside = devices.filter((d) => d.area === area && !d.offline)
       const entities = inside.map((d) => d.entity)
       if (inside.some((d) => d.on)) ha.turnOff(entities)
       else ha.turnOn(entities)
     },
-    [devices, ha],
+    [devices, windows, ha],
   )
 
   // Only devices Home Assistant reports as on are `on`, so this never targets an offline light.
@@ -127,8 +146,9 @@ export default function App() {
         weather={weather}
         wind={wind}
         lite={lite}
+        house={HOUSE}
       />
-      <Overlay
+      {!CLEAN && <Overlay
         rooms={devices}
         onToggle={toggleDevice}
         onAllOff={allOff}
@@ -160,7 +180,10 @@ export default function App() {
         onLiteChange={setLite}
         showClock={showClock}
         onShowClockChange={setShowClock}
-      />
+        availableTypes={availableTypes}
+        shownTypes={shownTypes}
+        onShownTypesChange={setShownTypes}
+      />}
     </div>
   )
 }

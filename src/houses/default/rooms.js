@@ -2,7 +2,8 @@
 // window centre on the wall, `rotationY` turns it to face outward
 // (0 = front/courtyard, PI = back lane).
 // Positions are measured off the front and back photos.
-// `area` is the Home Assistant area id: every light and socket in that area belongs to the window.
+// `area` is the Home Assistant area id: every device in that area belongs to the window (only the
+// device types ticked in the display settings).
 // Clicking it switches them together; the glass glows while any of them (other than a tree) is on.
 const FRONT = 0
 const BACK = Math.PI

@@ -1,14 +1,29 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { createContext, useContext, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { dotTexture } from './textures'
 
 // Falling rain or snow over the plot, and wind-blown streaks and leaves. Re-mounted when the weather changes.
-const BOUNDS = { x: [-14, 13], y: [0, 14], z: [-18.5, 21.5] }
+
+// Ground the weather covers: the house's `lot` ({ x: [min, max], z: [min, max] }, see houses/index.js),
+// up to 14 m. Particle counts are given for 6538's plot (27 m × 40 m) and scale with the area,
+// so a bigger lot gets as dense a rain.
+export const WeatherArea = createContext({ x: [-14, 13], z: [-18.5, 21.5] })
+const REFERENCE_AREA = 27 * 40
+function useBounds() {
+  const lot = useContext(WeatherArea)
+  return useMemo(() => ({
+    x: lot.x,
+    y: [0, 14],
+    z: lot.z,
+    scale: ((lot.x[1] - lot.x[0]) * (lot.z[1] - lot.z[0])) / REFERENCE_AREA,
+  }), [lot])
+}
 const span = (r) => r[0] + Math.random() * (r[1] - r[0])
 
 // wind: sideways drift (units/s) downwind; flakes wrap around the plot horizontally.
 function Snow({ count, speed = 1.4, wind = 0, size = 3 }) {
+  const BOUNDS = useBounds()
   const points = useRef()
   const { positions, phases } = useMemo(() => {
     const positions = new Float32Array(count * 3)
@@ -18,7 +33,7 @@ function Snow({ count, speed = 1.4, wind = 0, size = 3 }) {
       phases[i] = Math.random() * Math.PI * 2
     }
     return { positions, phases }
-  }, [count])
+  }, [count, BOUNDS])
 
   useFrame(({ clock }, dt) => {
     const attr = points.current.geometry.attributes.position
@@ -46,6 +61,7 @@ function Snow({ count, speed = 1.4, wind = 0, size = 3 }) {
 
 // Rain as short streaks, slanted and carried downwind (+x) by the 0..1 wind strength.
 function Rain({ count, speed, color, wind }) {
+  const BOUNDS = useBounds()
   const lines = useRef()
   const length = 0.55
 
@@ -58,7 +74,7 @@ function Rain({ count, speed, color, wind }) {
       p.set([x, y, z, x, y - length, z], i * 6)
     }
     return p
-  }, [count])
+  }, [count, BOUNDS])
 
   useFrame((_, dt) => {
     const attr = lines.current.geometry.attributes.position
@@ -96,7 +112,8 @@ const ramp = (v, from, to) => Math.min(1, Math.max(0, (v - from) / (to - from)))
 
 // Wind gusts: faint horizontal streaks racing downwind; more, faster and brighter as wind rises.
 export function Gusts({ strength, density = 1 }) {
-  const count = Math.round(160 * density)
+  const BOUNDS = useBounds()
+  const count = Math.round(160 * density * BOUNDS.scale)
   const lines = useRef()
   const length = 1.8
 
@@ -111,7 +128,7 @@ export function Gusts({ strength, density = 1 }) {
       speeds[i] = 0.6 + Math.random() * 0.8
     }
     return { positions, speeds }
-  }, [count])
+  }, [count, BOUNDS])
 
   const visible = Math.round(count * ramp(strength, 0.2, 1))
 
@@ -145,7 +162,8 @@ export function Gusts({ strength, density = 1 }) {
 
 // Autumn leaves torn off and tumbling downwind; how many depends on the wind.
 export function BlowingLeaves({ colors, strength, density = 1 }) {
-  const count = Math.round(90 * density)
+  const BOUNDS = useBounds()
+  const count = Math.round(90 * density * BOUNDS.scale)
   const mesh = useRef()
   const leaves = useMemo(
     () =>
@@ -157,7 +175,7 @@ export function BlowingLeaves({ colors, strength, density = 1 }) {
         spin: 2 + Math.random() * 6,
         pace: 0.6 + Math.random() * 0.8,
       })),
-    [count],
+    [count, BOUNDS],
   )
   const visible = Math.round(count * ramp(strength, 0.15, 0.8))
 
@@ -198,7 +216,8 @@ export function BlowingLeaves({ colors, strength, density = 1 }) {
 // `wind` is the 0..1 strength: it slants the rain and drifts the snow downwind.
 // `density` scales the number of particles (lite mode).
 export default function Precipitation({ type, wind = 0, density = 1 }) {
-  const n = (count) => Math.round(count * density)
+  const { scale } = useBounds()
+  const n = (count) => Math.round(count * density * scale)
   if (type === 'snow') return <Snow count={n(1400)} wind={wind * 14} />
   if (type === 'snowstorm') return <Snow count={n(4000)} speed={3.5} wind={wind * 14} size={2.4} />
   if (type === 'rain') return <Rain count={n(900)} speed={16} color="#b9cde0" wind={wind} />
