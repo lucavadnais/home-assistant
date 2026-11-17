@@ -18,6 +18,8 @@ const NOT_DEVICES = ['automation', 'script', 'scene']
 const OFF_STATES = ['off', 'standby', 'unavailable', 'unknown']
 
 const domainOf = (entityId) => entityId.split('.')[0]
+// A type's domain: 'switch:outlet' → 'switch'
+const typeDomain = (type) => type.split(':')[0]
 const typeOf = (entityId, state) => {
   const cls = state.attributes.device_class
   return cls ? `${domainOf(entityId)}:${cls}` : domainOf(entityId)
@@ -26,7 +28,7 @@ const typeOf = (entityId, state) => {
 // When one Home Assistant device has entities of several shown types, it appears once, as the
 // best of them: a light first (a bulb with a built-in socket shows as its light), then a socket,
 // then anything else, generic switches last (often a side option of another device).
-const rank = (type) => (type === 'light' ? 0 : type === 'switch:outlet' ? 1 : domainOf(type) === 'switch' ? 3 : 2)
+const rank = (type) => (type === 'light' ? 0 : type === 'switch:outlet' ? 1 : typeDomain(type) === 'switch' ? 3 : 2)
 
 // Every switchable entity Home Assistant has in an area (its own, else its device's).
 // Settings / diagnostic entities are left out. `available` lists the types found, for the settings;
@@ -69,7 +71,7 @@ export function homeDevices(registry, states, services, shown, trees) {
         area,
         on: !OFF_STATES.includes(s.state),
         offline: s.state === 'unavailable',
-        glows: GLOWING_DOMAINS.includes(domainOf(type)),
+        glows: GLOWING_DOMAINS.includes(typeDomain(type)),
         tree: trees.includes(e.entity_id),
       }
     })
