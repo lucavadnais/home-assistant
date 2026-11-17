@@ -39,7 +39,7 @@ export default function Overlay({
   season, seasonChoice, onSeasonChoiceChange,
   weatherChoice, onWeatherChoiceChange, weather, liveWeather, weatherError,
   haStatus, onHaRetry, showNeighbors, onShowNeighborsChange, viewShift, onViewShiftChange,
-  lite, onLiteChange, showClock, onShowClockChange, availableTypes, shownTypes, onShownTypesChange,
+  lite, onLiteChange, availableTypes, shownTypes, onShownTypesChange,
   calendarEvents, calendarStatus, calendarRefreshing, onCalendarRefresh,
 }) {
   const lit = rooms.filter((r) => r.on).length
@@ -74,8 +74,6 @@ export default function Overlay({
       onViewShiftChange={onViewShiftChange}
       lite={lite}
       onLiteChange={onLiteChange}
-      showClock={showClock}
-      onShowClockChange={onShowClockChange}
       availableTypes={availableTypes}
       shownTypes={shownTypes}
       onShownTypesChange={onShownTypesChange}
@@ -89,7 +87,6 @@ export default function Overlay({
         error={weatherError}
         expanded={settingsOpen}
         onExpandedChange={setSettingsOpen}
-        showClock={showClock}
       />
       {settingsOpen && (
         <div className="render-flyout">

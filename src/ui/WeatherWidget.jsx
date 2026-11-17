@@ -48,10 +48,10 @@ function WeatherIcon({ weather, isDay }) {
   )
 }
 
-// Time and date (unless hidden in the display settings), then the current outdoor conditions from
+// Time and date, then the current outdoor conditions from
 // the live feed, always the real weather (even when the scene is forced to another preset).
 // The arrow on the left opens the render settings panel beside the card.
-export default function WeatherWidget({ live, error, expanded, onExpandedChange, showClock }) {
+export default function WeatherWidget({ live, error, expanded, onExpandedChange }) {
   return (
     <section className="weather-widget" aria-label={`Météo à ${LOCATION.name}`}>
       <div className="weather-body">
@@ -66,8 +66,8 @@ export default function WeatherWidget({ live, error, expanded, onExpandedChange,
             <path d="M15 6l-6 6 6 6" />
           </svg>        </button>
         <div className="weather-info">
-          <div className={`weather-top ${showClock ? 'with-clock' : ''}`}>
-            {showClock && <Clock />}
+          <div className="weather-top with-clock">
+            <Clock />
             {live ? (
               <div className="weather-main">
                 <WeatherIcon weather={live.weather} isDay={live.isDay} />

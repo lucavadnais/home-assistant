@@ -37,8 +37,6 @@ export default function App() {
   useEffect(() => store('viewShift', viewShift), [viewShift])
   const [lite, setLite] = useState(initialLite)
   useEffect(() => store('lite', lite), [lite])
-  const [showClock, setShowClock] = useState(() => stored('showClock', 'true') === 'true')
-  useEffect(() => store('showClock', showClock), [showClock])
   // Types of device shown ('light', 'switch:outlet', …, see ha/devices.js), ticked in the display settings
   const [shownTypes, setShownTypes] = useState(() => {
     try {
@@ -178,8 +176,6 @@ export default function App() {
         onViewShiftChange={setViewShift}
         lite={lite}
         onLiteChange={setLite}
-        showClock={showClock}
-        onShowClockChange={setShowClock}
         availableTypes={availableTypes}
         shownTypes={shownTypes}
         onShownTypesChange={setShownTypes}
