@@ -1,8 +1,10 @@
 # Smart Home
 
-Maquette 3D interactive de la maison pour piloter les lumières pièce par pièce. Chaque fenêtre s'allume selon l'état de la lumière de sa pièce, et la scène suit l'heure, la saison et la météo en temps réel.
+Maquette 3D interactive pour piloter les lumières pièce par pièce. Chaque fenêtre s'allume selon l'état de la lumière de sa pièce, et la scène suit l'heure, la saison et la météo en temps réel.
 
 Construit avec React, Three.js ([react-three-fiber](https://github.com/pmndrs/react-three-fiber)) et Vite.
+
+![La maison en 3D un après-midi d'automne, avec l'agenda à gauche, et l'heure, la météo et la liste des appareils à droite](docs/screenshot.jpg)
 
 ## Fonctionnalités
 
